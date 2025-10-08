@@ -9,9 +9,9 @@ import { Icons } from '@/components/icons';
 import { LinkBadge } from '@/components/shared/link-badge';
 import { LinkCard } from '@/components/shared/link-card';
 
-const title = 'Lightweight and Minimalistic Next.js Blog Template';
+const title = 'Anup Jha Blogs';
 const description =
-  'A minimalistic, easy-to-use blog template built with Next.js. Customize it to your liking and use it for personal blogs, portfolio sites, or tech documentation.';
+  'A minimalistic, easy-to-use blog template built with Next.js.';
 
 export const dynamic = 'force-static';
 export const revalidate = false;
