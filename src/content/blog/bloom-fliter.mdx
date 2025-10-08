@@ -1,0 +1,174 @@
+---
+title: Bloom Filter
+description: Understand bloom filters in a easy way.
+date: 2024-02-12
+thumbnail: '/images/undraw/image-12.png'
+tags:
+  - systemdesign
+---
+
+Have you ever wondered how **Netflix** knows which shows you've already watched? Or how **Amazon** avoids showing you products you've already purchased? Or how **Gmail** checks for username already exists?
+
+Using a traditional data structure like a **hash table** for these checks could consume significant amount of **memory**, especially with millions of users and items.
+
+Instead, many systems rely on a more efficient data structure—a **Bloom Filter**.
+
+## **What is a Bloom Filter?**
+
+A **Bloom Filter** is a **probabilistic data structure** that allows you to quickly check whether an element might be in a set.
+
+It’s useful in scenarios where you need **fast lookups** and don’t want to use a large amount of memory, but you’re okay with occasional **false positives**.
+
+## Example
+
+Let's say we have a bit array of size 10 and 2 hash functions:
+
+`Initial: [0,0,0,0,0,0,0,0,0,0]`
+
+Adding "apple":
+
+- hash1("apple") = 2, hash2("apple") = 7
+- Set bits 2 and 7 to 1: `[0,0,1,0,0,0,0,1,0,0]`
+
+Adding "banana":
+
+- hash1("banana") = 3, hash2("banana") = 7
+- Set bits 3 and 7 to 1: `[0,0,1,1,0,0,0,1,0,0]`
+
+Querying "apple":
+
+- Check positions 2 and 7 → both are 1 → "apple" might be in the set
+
+Querying "orange":
+
+- hash1("orange") = 1, hash2("orange") = 5
+- Check positions 1 and 5 → both are 0 → "orange" is definitely not in the set
+
+## Key Properties
+
+- **No false negatives**: **If it says an element is not in the set, it's definitely not there**
+- **Possible false positives**: If it says an element might be in the set, it could be wrong
+- **Cannot remove elements**: Removing would affect other elements that share the same bit positions
+- **Space efficient**: Uses much less memory than storing the actual elements
+
+## JavaScript implementation
+```javascript
+class BloomFilter {
+  constructor(size = 1000, numHashFunctions = 3) {
+    this.size = size;
+    this.numHashFunctions = numHashFunctions;
+    this.bitArray = new Array(size).fill(0);
+  }
+
+  // Simple hash function using string character codes
+  hash(item, seed) {
+    let hash = seed;
+    const str = String(item);
+
+    for (let i = 0; i < str.length; i++) {
+      hash = ((hash << 5) - hash) + str.charCodeAt(i);
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+
+    return Math.abs(hash) % this.size;
+  }
+
+  // Add an item to the Bloom filter
+  add(item) {
+    for (let i = 0; i < this.numHashFunctions; i++) {
+      const index = this.hash(item, i);
+      this.bitArray[index] = 1;
+    }
+  }
+
+  // Check if an item might be in the set
+  contains(item) {
+    for (let i = 0; i < this.numHashFunctions; i++) {
+      const index = this.hash(item, i);
+      if (this.bitArray[index] === 0) {
+        return false; // Definitely not in the set
+      }
+    }
+    return true; // Probably in the set
+  }
+
+  // Calculate the optimal size for a Bloom filter
+  static optimalSize(n, p) {
+    // n = expected number of elements
+    // p = desired false positive probability
+    // m = -(n * ln(p)) / (ln(2)^2)
+    return Math.ceil(-(n * Math.log(p)) / (Math.log(2) ** 2));
+  }
+
+  // Calculate the optimal number of hash functions
+  static optimalHashFunctions(m, n) {
+    // m = size of bit array
+    // n = expected number of elements
+    // k = (m/n) * ln(2)
+    return Math.ceil((m / n) * Math.log(2));
+  }
+
+  // Get the current false positive probability
+  getFalsePositiveProbability(numInserted) {
+    // p ≈ (1 - e^(-kn/m))^k
+    const k = this.numHashFunctions;
+    const m = this.size;
+    const n = numInserted;
+
+    return Math.pow(1 - Math.exp((-k * n) / m), k);
+  }
+
+  // Clear the Bloom filter
+  clear() {
+    this.bitArray.fill(0);
+  }
+
+  // Get statistics about the filter
+  getStats(numInserted) {
+    const setBits = this.bitArray.filter(bit => bit === 1).length;
+    const loadFactor = setBits / this.size;
+    const falsePositiveRate = this.getFalsePositiveProbability(numInserted);
+
+    return {
+      size: this.size,
+      numHashFunctions: this.numHashFunctions,
+      setBits,
+      loadFactor: loadFactor.toFixed(4),
+      estimatedFalsePositiveRate: (falsePositiveRate * 100).toFixed(4) + '%',
+      itemsInserted: numInserted
+    };
+  }
+}
+
+// Example usage
+const filter = new BloomFilter(1000, 3);
+
+// Add items
+filter.add('apple');
+filter.add('banana');
+filter.add('orange');
+filter.add('grape');
+
+// Test membership
+console.log('Contains "apple":', filter.contains('apple'));     // true
+console.log('Contains "banana":', filter.contains('banana'));   // true
+console.log('Contains "kiwi":', filter.contains('kiwi'));       // false (probably)
+console.log('Contains "mango":', filter.contains('mango'));     // false (probably)
+
+// Get statistics
+console.log('\nFilter Statistics:');
+console.log(filter.getStats(4));
+
+// Example: Creating an optimized Bloom filter
+const expectedItems = 10000;
+const desiredFPR = 0.01; // 1% false positive rate
+const optimalSize = BloomFilter.optimalSize(expectedItems, desiredFPR);
+const optimalK = BloomFilter.optimalHashFunctions(optimalSize, expectedItems);
+
+console.log('\nOptimal parameters for 10,000 items with 1% FPR:');
+console.log('Size:', optimalSize);
+console.log('Hash functions:', optimalK);
+
+const optimizedFilter = new BloomFilter(optimalSize, optimalK);
+console.log('Created optimized filter with', optimalSize, 'bits and', optimalK, 'hash functions');
+```

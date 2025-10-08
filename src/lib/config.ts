@@ -5,7 +5,7 @@ export const siteConfig = {
   url: 'https://anupjha.com/',
   ogImage: 'https://anupjha.com/og.png',
   links: {
-    twitter: 'https://twitter.com/imanupjha',
+    twitter: 'https://x.com/imanupjha',
     github: 'https://github.com/anupjha',
     linkedin: 'https://linkedin.com/in/anupkrjha',
   },
