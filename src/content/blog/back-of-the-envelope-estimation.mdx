@@ -1,0 +1,273 @@
+---
+title: Back-of-the-Envelope Estimation
+description: A Precise Guide to System Design Estimation
+date: 2024-02-08
+thumbnail: '/images/undraw/image-08.png'
+tags:
+  - systemdesign
+---
+
+<Callout>
+  Back-of-the-envelope calculations are a fundamental technique in software engineering used to determine optimal system architecture design. This methodology, widely adopted by major technology companies including Google, Meta, Amazon, and Microsoft, is a standard component of system design interviews. The core principle involves calculating approximate numerical estimates to inform architectural decisions and solution design.
+</Callout>
+
+This technique is synonymous with **capacity planning** and is essential for measuring system performance to meet Service Level Agreements (**SLAs**). Organizations perform back-of-the-envelope calculations for three primary reasons:
+
+1. Database partitioning decisions
+2. Architectural design feasibility evaluation
+3. System bottleneck identification
+
+## Essential Knowledge Areas
+
+Mastering back-of-the-envelope calculations requires understanding three core concepts:
+
+1. Powers of two calculations
+2. System availability metrics
+3. Latency benchmarks for common operations
+
+## Powers of Two Reference
+
+The following table provides precise values for powers of two, essential for memory and storage calculations:
+
+| **Power** | **Exact Value** | **Approximate Value** | **Storage Unit** | **Decimal Zeros** |
+| --- | --- | --- | --- | --- |
+| 2¹⁰ | 1,024 | 1 Thousand | 1 KB | 3 |
+| 2²⁰ | 1,048,576 | 1 Million | 1 MB | 6 |
+| 2³⁰ | 1,073,741,824 | 1 Billion | 1 GB | 9 |
+| 2⁴⁰ | 1,099,511,627,776 | 1 Trillion | 1 TB | 12 |
+| 2⁵⁰ | 1,125,899,906,842,624 | 1 Quadrillion | 1 PB | 15 |
+
+### Data Type Storage Requirements
+
+| **Data Type** | **Size (bytes)** |
+| --- | --- |
+| int/float | 4 |
+| long/double/timestamp | 8 |
+| char (UTF-16) | 2 |
+| UTF-8 char (English) | 1 |
+| UTF-8 char (Chinese) | 3 |
+
+## Precise Unit Conversions
+### Binary vs Decimal Storage Units
+
+- **Binary**: 1 KB = 1,024 bytes, 1 MB = 1,024 KB, 1 GB = 1,024 MB
+- **Decimal** (used in this guide): 1 KB = 1,000 bytes, 1 MB = 1,000 KB, 1 GB = 1,000 MB
+
+### Time Unit Conversions
+
+| **Unit** | **Value in Seconds** |
+| --- | --- |
+| 1 nanosecond (ns) | 1 × 10⁻⁹ |
+| 1 microsecond (µs) | 1 × 10⁻⁶ |
+| 1 millisecond (ms) | 1 × 10⁻³ |
+
+## Quick Calculation Formulas
+
+### Storage Estimation Shortcuts
+
+- **x Million users × y KB = xy GB**
+    - Example: 1M users × 100KB document = 100GB daily storage
+- **x Million users × y MB = xy TB**
+    - Example: 200M users × 2MB video = 400TB daily storage
+
+## System Availability Metrics
+
+High availability measures a system's operational uptime percentage over a defined period. The following table shows precise downtime calculations for common availability targets:
+
+| **Availability %** | **Annual Downtime** | **Monthly Downtime** | **Weekly Downtime** |
+| --- | --- | --- | --- |
+| 99.0% (2 nines) | 87.7 hours | 7.31 hours | 1.68 hours |
+| 99.9% (3 nines) | 8.77 hours | 43.8 minutes | 10.1 minutes |
+| 99.99% (4 nines) | 52.6 minutes | 4.38 minutes | 1.01 minutes |
+| 99.999% (5 nines) | 5.26 minutes | 26.3 seconds | 6.05 seconds |
+| 99.9999% (6 nines) | 31.6 seconds | 2.63 seconds | 0.60 seconds |
+
+### Key Reliability Metrics
+
+- **Mean Time Between Failures (MTBF)**: Average operational time between system failures
+- **Mean Time To Repair (MTTR)**: Average time required to restore system functionality after failure
+- **Service Level Agreement (SLA)**: Contractual commitment defining service standards and availability guarantees
+
+## Latency Benchmarks for System Operations
+
+The following latency measurements are based on modern hardware (circa 2023-2024) and provide realistic performance expectations:
+
+| **Operation** | **Latency** | **Unit** | **Notes** |
+| --- | --- | --- | --- |
+| L1 cache reference | 0.5 | ns | CPU cache hit |
+| Branch mispredict | 5 | ns | CPU pipeline stall |
+| L2 cache reference | 7 | ns | Secondary cache |
+| Mutex lock/unlock | 25 | ns | Synchronization overhead |
+| Main memory reference | 100 | ns | RAM access |
+| Compress 1KB with Snappy | 10 | µs | Modern compression |
+| Send 1KB over 1 Gbps network | 10 | µs | Network transmission |
+| Random SSD read (4KB) | 150 | µs | Solid-state storage |
+| Sequential memory read (1MB) | 250 | µs | RAM throughput |
+| Intra-datacenter round trip | 500 | µs | Same facility |
+| Sequential SSD read (1MB) | 1 | ms | Storage throughput |
+| Hard disk seek | 10 | ms | Mechanical storage |
+| Sequential network read (1MB, 1Gbps) | 10 | ms | Network bandwidth |
+| Sequential HDD read (1MB) | 30 | ms | Mechanical throughput |
+| Intercontinental round trip (CA↔Netherlands) | 150 | ms | Global latency |
+
+### Key Performance Insights
+
+- Memory access is 100× faster than SSD access
+- Network compression reduces bandwidth requirements by 60-80%
+- Write operations typically cost 2-5× more than reads
+- Maximum inter-region round trips: 7 per second (150ms latency)
+- Maximum intra-datacenter round trips: 2,000 per second (0.5ms latency)
+
+## Estimation Best Practices
+
+### Mathematical Simplification
+
+- Round complex numbers: 99,987 ÷ 9.1 → 100,000 ÷ 10 = 10,000
+- Use powers of 10 for approximations
+- Prioritize order of magnitude over precision
+
+### Documentation Standards
+
+- Always specify units (5MB, not just 5)
+- Document key assumptions
+- Show calculation steps
+- Label intermediate results
+
+### Common Estimation Categories
+
+- **Queries Per Second (QPS)**: Request handling capacity
+- **Peak QPS**: Maximum traffic handling (typically 2-10× average)
+- **Storage Requirements**: Data persistence needs
+- **Cache Size**: In-memory storage optimization
+- **Server Count**: Infrastructure scaling requirements
+
+## Practical Example: Social Media Platform Capacity Planning
+
+### Initial Assumptions
+
+- **Total Users**: 1 billion registered
+- **Daily Active Users (DAU)**: 250 million (25% of total)
+- **Posts per User per Day**: 2
+- **Image Posts**: 25 million daily (10% of users)
+- **Data Retention**: 5 years
+- **Character Encoding**: UTF-8 (2 bytes per character average)
+
+### QPS Calculation
+
+```
+Read Queries: 250M users × 5 reads/day = 1.25B reads/day
+Write Queries: 250M users × 2 writes/day = 500M writes/day
+Total Queries: 1.75B queries/day
+
+Daily Seconds: 24 × 60 × 60 = 86,400 seconds
+Average QPS: 1.75B ÷ 86,400 = 20,255 QPS ≈ 20,000 QPS
+
+```
+
+### Storage Requirements
+
+### Text Posts
+
+```
+Characters per Post: 250
+Storage per Character: 2 bytes (UTF-8)
+Storage per Post: 250 × 2 = 500 bytes
+Posts per User: 2 daily
+User Storage: 2 × 500 = 1,000 bytes = 1 KB
+Daily Text Storage: 250M users × 1 KB = 250 GB
+
+5-Year Text Storage: 250 GB × 365 × 5 = 456.25 TB ≈ 460 TB
+
+```
+
+### Image Posts
+
+```
+Image Size: 300 KB average
+Daily Images: 25M
+Daily Image Storage: 25M × 300 KB = 7.5 TB
+
+5-Year Image Storage: 7.5 TB × 365 × 5 = 13,687.5 TB ≈ 13.7 PB
+
+```
+
+##### Total Storage: 460 TB + 13.7 PB = 14.16 PB
+
+### Cache Estimation
+
+```
+Posts Cached per User: 5 recent posts
+Cache per Post: 500 bytes
+Cache per User: 5 × 500 = 2,500 bytes ≈ 2.5 KB
+Total Cache: 250M users × 2.5 KB = 625 GB
+
+Servers Required (75 GB RAM each): 625 GB ÷ 75 GB = 8.3 ≈ 9 servers
+
+```
+
+### Server Infrastructure
+
+```
+Availability Target: 99.999% (5 nines)
+Request Processing Time: 500ms
+Requests per Second per Thread: 2
+Server Threads: 50
+Server Capacity: 50 × 2 = 100 requests/second
+
+Servers Required: 20,000 QPS ÷ 100 RPS = 200 servers
+
+```
+
+## Scale Reference: The Million-Unit Rule
+
+### Daily Volume to Per-Second Conversion
+
+One million operations per day equals approximately 11.6 operations per second:
+
+```
+1,000,000 ÷ 86,400 seconds = 11.57/second ≈ 12/second
+
+```
+
+### Scaling Factors
+
+| **Daily Volume** | **Average/Second** | **10% Peak Hour** | **30% Peak Hour** |
+| --- | --- | --- | --- |
+| 1 million | 12 | 28 | 84 |
+| 10 million | 120 | 280 | 840 |
+| 100 million | 1,200 | 2,800 | 8,400 |
+
+### Peak Traffic Calculations
+
+**10% Peak Rule**: If 10% of daily traffic occurs in 1 hour:
+
+```
+Peak QPS = (Daily Volume × 0.10) ÷ 3,600 seconds
+Example: 1M daily → 100,000 ÷ 3,600 = 28/second
+
+```
+
+## Memory and Storage Calculations
+
+### Data Structure Sizes (1 Million Records)
+
+| **Data Type** | **Per Record** | **1M Records** | **Memory Required** |
+| --- | --- | --- | --- |
+| Integer (32-bit) | 4 bytes | 4 MB | 4 MB |
+| Long (64-bit) | 8 bytes | 8 MB | 8 MB |
+| Float (32-bit) | 4 bytes | 4 MB | 4 MB |
+| UTF-8 String (avg 100 chars) | 200 bytes | 200 MB | 200 MB |
+| JSON Object (avg 1KB) | 1,024 bytes | 1 GB | 1 GB |
+
+### Storage Growth Projections
+
+For systems expecting user growth, calculate storage requirements using compound growth:
+
+```
+Future Storage = Current Storage × (1 + Growth Rate)^Years
+Example: 1TB current, 20% annual growth, 5 years
+Future Storage = 1TB × (1.20)^5 = 2.49 TB
+
+```
+
+This comprehensive guide provides the precise numerical foundations needed for accurate system design estimation and capacity planning in modern software engineering contexts.

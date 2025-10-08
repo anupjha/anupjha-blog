@@ -1,0 +1,663 @@
+---
+title: Implement Promise
+description: How to create a Promise?
+date: 2024-06-03
+thumbnail: '/images/undraw/image-02.png'
+tags:
+  - javascript
+---
+
+# **How to create a Promise?**
+
+Promises ensure our code runs in the correct sequence. There is basically one way to create a Promise but two ways to use it.
+
+1. **Create a Promise and resolve it immediately.**
+
+```jsx
+// promise is triggered to resolve here, when creating
+const promise = new Promise((resolve, reject) => {
+    setTimeout(() => {
+        resolve('resolved');
+    }, 1000);
+});
+
+promise.then((res) => {
+    console.log(res);
+});
+```
+
+Running the following will create a Promise that resolves it immediately**.**
+
+Note: `setTimeout` simulates a long running asynchronous process such as calling a backend service.
+
+**2. Create a function that returns a Promise and resolve when calling the function.**
+
+```jsx
+const getPromise = function() {
+    return new Promise((resolve, reject) => {
+        setTimeout(() => {
+            resolve(res);
+        }, 1000);
+    });
+};
+
+// promise is triggered to resolve here, when calling the function
+getPromise().then((res) => {
+    console.log(res);
+});
+```
+
+This looks simple but it was my first “aha!” moment. A new Promise will immediately execute. If we do not want execute immediately, we need to put it into a function and call it when desired.
+
+Now we know the first thing we want to do: create a constructor which takes one function with two params (`resolve`, `reject`). They are functions the caller uses to settle their promises.
+
+# **How to consume a Promise?**
+
+After a Promise is created, it can be consumed. There are three main ways to consume a Promise: `then()`, `catch()`, `finally()`.
+
+```jsx
+const promise = new Promise((resolve, reject) => {
+    setTimeout(() => {
+        resolve(res);
+    }, 1000);
+});
+
+promise.then((res) => {
+    console.log(res);
+}, (err) => {
+    console.log(err);
+});
+promise.catch((err) => {
+    console.log(err);
+});
+promise.finally(() => {
+    console.log("finally over");
+});
+```
+
+`.then(res => onFulfilled(res), err => onRejected(err))` — takes two functions defined by the consumer. They are called after a Promise is resolved or rejected.
+
+`.catch(err => onRejected(err))` — takes a function which is executed when the Promise is rejected.
+
+`.finally(() => onSettled())` — takes a function when the Promise is either resolved or rejected. It is called after then and catch. `onSettled` is not called with any params.
+
+In this article, we will only implement `.then()` since the other two are pretty similar.
+
+# **Okay, Let’s look at what we need to do**
+
+Promises have the following properties:
+
+- `constructor((resolve, reject) => {})` — takes a handler function with the params `resolve` and `reject` .
+- `.then(res => onFulfilled(res), err => onRejected(err))` — takes two params (`onFulfilled`, `onRejected`) which are functions Promise consumers calls to consume their promises after they are resolved or rejected
+- Promise’s states — “pending”, “fulfilled”, “rejected”
+- Promise’s value — the result or error called with functions `onFulfilled` and `onRejected` which are provided by the Promise’s consumer.
+
+# **A basic version of Promise**
+
+When creating a Promise, the constructor accepts a handler function. The handler function executes and calls resolve when complete or reject if any error is encountered. Therefore, in our Promise class, we need the constructor to create the resolve and reject function which are passed to the handler.
+
+Depending on the status of the Promise, we execute the callbacks. There are a few rules about the status.
+
+1. All Promises start with the “pending” status.
+2. Once a status has changed to “fulfilled” or “rejected”, it cannot be changed.
+
+Here is our very first version of a Promise. If you see any obvious bugs, please bear with me. We will address them later.
+
+```jsx
+// version 1
+class Promise {
+    constructor(handler) {
+        this.status = "pending";
+        this.value = null;
+
+        const resolve = value => {
+            if (this.status === "pending") {
+                this.status = "fulfilled";
+                this.value = value;
+            }
+        };
+        const reject = value => {
+            if (this.status === "pending") {
+                this.status = "rejected";
+                this.value = value;
+            }
+        };
+
+        try {
+            handler(resolve, reject);
+        } catch (err) {
+            reject(err);
+        }
+    }
+
+    then(onFulfilled, onRejected) {
+        if (this.status === "fulfilled") {
+            onFulfilled(this.value);
+        } else if (this.status === "rejected") {
+            onRejected(this.value);
+        }
+    }
+}
+
+// testing code
+const p1 = new Promise((resolve, reject) => {
+    resolve('resolved!');
+});
+const p2 = new Promise((resolve, reject) => {
+    reject('rejected!')
+})
+p1.then((res) => {
+    console.log(res);
+}, (err) => {
+    console.log(err);
+});
+p2.then((res) => {
+    console.log(res);
+}, (err) => {
+    console.log(err);
+});
+
+// 'p1 resolved!'
+// 'p2 rejected!'
+```
+
+This is a great start! But as you might have noticed, it has a pretty obvious bug. It does not support asynchronous execution (which is the main reason why people use Promises). If we change our test code like the following and use `setTimeout` to resolve the Promise, it will not work.
+
+```jsx
+const p3 = new Promise((resolve, reject) => {
+    setTimeout(() => resolve('resolved!'), 1000);
+});
+p3.then((res) => {
+    console.log(res);
+},(err) => {
+    console.log(err);
+});
+// no console log output, our Promise didn't work
+```
+
+This is because when we call `.then()`, our Promise’s status is still pending. Neither `onFulfilled` nor `onRejected` was executed. We need to support asynchronous execution!
+
+# **An improved version of Promise — async support**
+
+To support async, we need to store the `onFulfilled` and `onRejected` functions somewhere. Once the Promise’s status changes, we execute the functions immediately.
+
+`.then()` can be called multiple times on the same Promise. Therefore, we will use two arrays ,`onFulfilledCallbacks` and `onRejectedCallbacks` , to store the functions and execute them once `resolve` or `reject` is called.
+
+Here is our second version.
+
+```jsx
+class Promise {
+    constructor(handler) {
+        this.status = "pending";
+        this.onFulfilledCallbacks = [];
+        this.onRejectedCallbacks = [];
+
+        const resolve = value => {
+            if (this.status === "pending") {
+                this.status = "fulfilled";
+                this.value = value;
+                this.onFulfilledCallbacks.forEach(fn => fn(value));
+            }
+        };
+
+        const reject = value => {
+            if (this.status === "pending") {
+                this.status = "rejected";
+                this.value = value;
+                this.onRejectedCallbacks.forEach(fn => fn(value));
+            }
+        };
+
+        try {
+            handler(resolve, reject);
+        } catch (err) {
+            reject(err);
+        }
+    }
+
+    then(onFulfilled, onRejected) {
+        if (this.status === "pending") {
+            this.onFulfilledCallbacks.push(onFulfilled);
+            this.onRejectedCallbacks.push(onRejected);
+        }
+
+        if (this.status === "fulfilled") {
+            onFulfilled(this.value);
+        }
+
+        if (this.status === "rejected") {
+            onRejected(this.value);
+        }
+    }
+}
+
+// testing code
+const p3 = new Promise((resolve, reject) => {
+    setTimeout(() => resolve('resolved!'), 1000);
+});
+p3.then((res) => {
+    console.log(res);
+}, (err) => {
+    console.log(err);
+});
+
+// ' resolved!'
+```
+
+We are making great progress! I think if you are able to write this version in an interview, the interviewer should be satisfied. But we can wow them by implementing Promise chaining.
+
+# **An even better Promise — chaining support**
+
+We know that we can chain Promises like so:
+
+```jsx
+const p = new Promise((resolve, reject) => {
+    setTimeout(() => resolve('resolved first one'), 1000);
+});
+p.then((res) => {
+    console.log(res);
+    return res + ' do some calculation';
+}).then(res => {
+    console.log(res);
+});
+// 'resolved first one'
+```
+
+With the second version of our Promise, if we tried to run the above code, the code would print “resolved first one” and throw — “Uncaught TypeError: Cannot read property ‘then’ of undefined”. This is because our implementation of `.then()` does not return any value.
+
+Let’s modify`.then()` to return a new Promise and resolve it with the return value of `onFulfilled`/`onRejected`.
+
+```jsx
+then(onFulfilled, onRejected) {
+    return new Promise((resolve, reject) => {
+        if (this.status === "pending") {
+            this.onFulfilledCallbacks.push(() => {
+                try {
+                    const fulfilledFromLastPromise = onFulfilled(this.value);
+                    resolve(fulfilledFromLastPromise);
+                } catch (err) {
+                    reject(err);
+                }
+            });
+            this.onRejectedCallbacks.push(() => {
+                try {
+                    const rejectedFromLastPromise = onRejected(this.value);
+                    reject(rejectedFromLastPromise);
+                } catch (err) {
+                    reject(err);
+                }
+            });
+        }
+
+        if (this.status === "fulfilled") {
+            try {
+                const fulfilledFromLastPromise = onFulfilled(this.value);
+                resolve(fulfilledFromLastPromise);
+            } catch (err) {
+                reject(err);
+            }
+
+        }
+
+        if (this.status === "rejected") {
+            try {
+                const rejectedFromLastPromise = onRejected(this.value);
+                reject(rejectedFromLastPromise);
+            } catch (err) {
+                reject(err);
+            }
+        }
+    });
+}
+```
+
+Now if we test the Promise with the same code, we get both console.log outputs! This is great! But not quite there. What if the return value of `onFulfilled`/`onRejected` is a Promise? A real life use case would be: I fetched some data from a service, after I got a response, I need to use the data in the response to fetch additional data from another service.
+
+Our current implementation will not work with the following code.
+
+```jsx
+const p1 = new Promise((resolve, reject) => {
+    setTimeout(() => resolve('resolved first one'), 1000);
+})
+
+p1.then((res) => {
+    console.log(res);
+    return new Promise(resolve => {
+        setTimeout(() => resolve('resolved second one'), 1000);
+    });
+}).then(res => {
+    console.log(res);
+});
+
+// ideally, it should
+// 1 sec later, log 'resolved first one'
+// 1 sec later, log 'resolved second one'
+```
+
+Because our Promise does not know how to handle the response of `onFulfilled`/`onRejected` if it is a Promise, we need to find a way to deal with it.
+
+**How to deal with it? — call .then()**
+
+Okay my head hurts…Hang in there! I promise this is the last bit.
+
+Let’s straighten out the different Promises we have in play.
+
+- “first Promise” — the initial Promise, as in `p1` in the above code.
+- “second Promise” — the Promise created and returned in`.then()`
+- “third Promise” — the Promise returned from `onFulfilled`/`onRejected`
+
+Inside `.then()`, we created a new Promise (a.k.a. second Promise) to return to the caller. If the `onFulfilled` function returns a Promise (a.k.a third Promise), we will call `.then(resolve, reject)` on the third Promise to chain it. We pass in the second Promise’s `resolve` and `reject` functions so the second Promise can settle once the third Promise is settled.
+
+In other words, the order of Promises settling is first -> third -> second.
+
+Here is the updated `.then()`.
+
+```jsx
+then(onFulfilled, onRejected) {
+    return new Promise((resolve, reject) => {
+        if (this.status === "pending") {
+            this.onFulfilledCallbacks.push(() => {
+                try {
+                    const fulfilledFromLastPromise = onFulfilled(this.value);
+                    if (fulfilledFromLastPromise instanceof Promise) {
+                        fulfilledFromLastPromise.then(resolve, reject);
+                    } else {
+                        resolve(fulfilledFromLastPromise);
+                    }
+                } catch (err) {
+                    reject(err);
+                }
+            });
+            this.onRejectedCallbacks.push(() => {
+                try {
+                    const rejectedFromLastPromise = onRejected(this.value);
+                    if (rejectedFromLastPromise instanceof Promise) {
+                        rejectedFromLastPromise.then(resolve, reject);
+                    } else {
+                        reject(rejectedFromLastPromise);
+                    }
+                } catch (err) {
+                    reject(err);
+                }
+            });
+        }
+
+        if (this.status === "fulfilled") {
+            try {
+                const fulfilledFromLastPromise = onFulfilled(this.value);
+                if (fulfilledFromLastPromise instanceof Promise) {
+                    fulfilledFromLastPromise.then(resolve, reject);
+                } else {
+                    resolve(fulfilledFromLastPromise);
+                }
+            } catch (err) {
+                reject(err);
+            }
+
+        }
+
+        if (this.status === "rejected") {
+            try {
+                const rejectedFromLastPromise = onRejected(this.value);
+                if (rejectedFromLastPromise instanceof Promise) {
+                    rejectedFromLastPromise.then(resolve, reject);
+                } else {
+                    reject(rejectedFromLastPromise);
+                }
+            } catch (err) {
+                reject(err);
+            }
+        }
+    });
+}
+```
+
+That is it! Okay, let’s look at our code of final version! 😍
+
+# **Final Version**
+
+```jsx
+class Promise {
+    constructor(handler) {
+        this.status = "pending";
+        this.onFulfilledCallbacks = [];
+        this.onRejectedCallbacks = [];
+
+        const resolve = value => {
+            if (this.status === "pending") {
+                this.status = "fulfilled";
+                this.value = value;
+                this.onFulfilledCallbacks.forEach(fn => fn(value));
+            }
+        };
+
+        const reject = value => {
+            if (this.status === "pending") {
+                this.status = "rejected";
+                this.value = value;
+                this.onRejectedCallbacks.forEach(fn => fn(value));
+            }
+        };
+
+        try {
+            handler(resolve, reject);
+        } catch (err) {
+            reject(err);
+        }
+    }
+
+    then(onFulfilled, onRejected) {
+        return new Promise((resolve, reject) => {
+            if (this.status === "pending") {
+                this.onFulfilledCallbacks.push(() => {
+                    try {
+                        const fulfilledFromLastPromise = onFulfilled(this.value);
+                        if (fulfilledFromLastPromise instanceof Promise) {
+                            fulfilledFromLastPromise.then(resolve, reject);
+                        } else {
+                            resolve(fulfilledFromLastPromise);
+                        }
+                    } catch (err) {
+                        reject(err);
+                    }
+                });
+                this.onRejectedCallbacks.push(() => {
+                    try {
+                        const rejectedFromLastPromise = onRejected(this.value);
+                        if (rejectedFromLastPromise instanceof Promise) {
+                            rejectedFromLastPromise.then(resolve, reject);
+                        } else {
+                            reject(rejectedFromLastPromise);
+                        }
+                    } catch (err) {
+                        reject(err);
+                    }
+                });
+            }
+
+            if (this.status === "fulfilled") {
+                try {
+                    const fulfilledFromLastPromise = onFulfilled(this.value);
+                    if (fulfilledFromLastPromise instanceof Promise) {
+                        fulfilledFromLastPromise.then(resolve, reject);
+                    } else {
+                        resolve(fulfilledFromLastPromise);
+                    }
+                } catch (err) {
+                    reject(err);
+                }
+
+            }
+
+            if (this.status === "rejected") {
+                try {
+                    const rejectedFromLastPromise = onRejected(this.value);
+                    if (rejectedFromLastPromise instanceof Promise) {
+                        rejectedFromLastPromise.then(resolve, reject);
+                    } else {
+                        reject(rejectedFromLastPromise);
+                    }
+                } catch (err) {
+                    reject(err);
+                }
+            }
+        });
+
+    }
+}
+
+// testing code
+let p1 = new Promise((resolve, reject) => {
+    setTimeout(() => resolve('resolved first one'), 1000);
+});
+p1.then((res) => {
+    console.log(res);
+    return new Promise(resolve => {
+        setTimeout(() => resolve('resolved second one'), 1000);
+    });
+}).then(res => {
+    console.log(res);
+});
+
+// 1 sec later, 'resolved first one'
+// 1 sec later, 'resolved second one'
+view rawpromise-final.js hosted with ❤ by GitHub
+```
+
+# **Promise.all**
+
+Let’s refresh our memory of how Promise.all is used. The following is a snippet I copied from MDN
+
+```jsx
+const promise1 = Promise.resolve(3);
+const promise2 = 42;
+const promise3 = new Promise((resolve, reject) => {
+    setTimeout(resolve, 100, 'foo');
+});
+
+Promise.all([promise1, promise2, promise3]).then((values) => {
+    console.log(values);
+});
+// expected output: Array [3, 42, "foo"]
+```
+
+Our implementation should take an array of promises (though it could contain non-promises like `42`), returns a single promises that resolves when every promises in the input array resolves, rejects immediately when any of them rejects.
+
+Here is my implementation:
+
+```jsx
+Promise.all = function (promises) {
+    return new Promise((resolve, reject) => {
+        let counter = 0;
+        const result = [];
+        for (let i = 0; i < promises.length; i++) {
+            Promise.resolve(promises[i]).then(res => {
+                result[i] = res;
+                counter += 1;
+                // this check need to be here, otherwise counter would remain 0 till forloop is done
+                if (counter === promises.length) {
+                    resolve(result);
+                }
+            }, err => {
+                reject(err);
+            });
+        }
+    });
+};
+
+const promise1 = Promise.resolve(3);
+const promise2 = 42;
+const promise3 = new Promise((resolve, reject) => {
+    setTimeout(resolve, 100, 'foo');
+});
+
+const newPromise = Promise.all([promise1, promise2, promise3]).then((values) => {
+    console.log(values);
+});
+
+// after 100ms, output:  Array [3, 42, "foo"]
+```
+
+Three things worth mentioning:
+
+1. The counter check needs to be right after we push a result. I made a mistake by putting the check further down in the for loop. The counter remained to be 0 after the loop because how javascript sequence normal code and promise code.
+2. When looping, use `i` to keep the order of promise results same as input because promises could take different time to resolve.
+3. We need to use `Promise.resolve(promises[i])` instead of `promises[i].then()` when processing every promise. Because `promises[i]` could be a non-promise so it won’t have `.then()` method. We will discuss how to write `Promise.resolve()` shortly.
+
+Pretty straightforward! Let’s move on.
+
+# **Promise.race**
+
+Promise.race settles as long as one of the input promises settles (either resolved or rejected).
+
+Here is MDN’s example on how it is used
+
+```jsx
+const promise1 = new Promise((resolve, reject) => {
+  setTimeout(resolve, 500, 'one');
+});
+
+const promise2 = new Promise((resolve, reject) => {
+  setTimeout(resolve, 100, 'two');
+});
+
+Promise.race([promise1, promise2]).then((value) => {
+  console.log(value);
+  // Both resolve, but promise2 is faster
+});
+// expected output: "two"
+```
+
+Here is my implementation:
+
+```jsx
+Promise.race = function (promises) {
+    return new Promise((resolve, reject) => {
+        for (let p of promises) {
+            Promise.resolve(p).then(res => resolve(res), err => reject(err));
+        }
+    });
+}
+
+// testing
+const promise1 = new Promise((resolve, reject) => {
+    setTimeout(resolve, 500, 'one');
+});
+const promise2 = new Promise((resolve, reject) => {
+    setTimeout(resolve, 100, 'two');
+});
+Promise.race([promise1, promise2]).then((value) => {
+    console.log(value);
+    // Both resolve, but promise2 is faster
+}, err => console.log(err));
+// expected output: "two"
+```
+
+# **Promise.resolve & Promise.reject**
+
+The **`Promise.resolve()`** method returns a [`Promise`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise) object that is resolved with a given value. If the value is a promise, that promise is returned; It also has a thenable scenario. We will skip it here. More details in the [MDN doc](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise/resolve).
+
+The **`Promise.reject()`** method returns a `Promise` object that is rejected with a given reason.
+
+Here is my implementation:
+
+```jsx
+Promise.resolve = function (value) {
+    if (value instanceof Promise) {
+        return value;
+    } else {
+        return new Promise((resolve, reject) => {
+            resolve(value);
+        });
+    }
+};
+
+Promise.reject = function (reason) {
+    return new Promise((resolve, reject) => reject(reason));
+}
+
+const p1 = Promise.resolve1("Success");
+p1.then(res => console.log(res)); // "Success"
+const p2 = Promise.reject1("No");
+p2.then(_ => { }, err => console.log(err)); // "No"
+```

@@ -1,0 +1,157 @@
+---
+title: Debounce vs Throttle in JavaScript
+description: Understand the differnce between debounce and throttle and when to use each.
+date: 2024-06-01
+thumbnail: '/images/undraw/image-01.png'
+tags:
+  - javascript
+---
+
+<Callout>
+ Both debounce and throttle are techniques to control how often a function executes, but they work differently.
+</Callout>
+## Debounce
+
+**Delays execution until after a period of inactivity.**
+
+- Waits for a pause in events before executing
+- Resets the timer if the event occurs again before the delay completes
+- Only executes once after the user stops triggering the event
+
+**Common use cases:**
+
+- Search input (wait until user stops typing)
+- Window resize events
+- Form validation
+- Auto-save functionality
+
+## Throttle
+
+**Limits execution to once per specified time interval.**
+
+- Guarantees the function runs at regular intervals
+- Ignores additional calls during the wait period
+- Executes immediately, then enforces a cooldown
+
+**Common use cases:**
+
+- Scroll events (infinite scroll, animations)
+- Mouse movement tracking
+- Button clicks (prevent spam)
+- Game loop updates
+
+### Example:
+```html showLineNumbers title="index.html"
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+  <script src="script.js" defer></script>
+</head>
+<body>
+  <input type="text">
+  <div>
+    <b>Default:</b>
+    <span id="default"></span>
+  </div>
+  <div>
+    <b>Debounce:</b>
+    <span id="debounce"></span>
+  </div>
+  <div>
+    <b>Throttle:</b>
+    <span id="throttle"></span>
+  </div>
+</body>
+</html>
+```
+
+```js showLineNumbers title="script.js"
+const input = document.querySelector("input")
+const defaultText = document.getElementById("default")
+const debounceText = document.getElementById("debounce")
+const throttleText = document.getElementById("throttle")
+
+const updateDebounceText = debounce(() => {
+  incrementCount(debounceText)
+})
+const updateThrottleText = throttle(() => {
+  incrementCount(throttleText)
+}, 100)
+
+function debounce(cb, delay = 1000) {
+  let timeout
+
+  return (...args) => {
+    clearTimeout(timeout)
+    timeout = setTimeout(() => {
+      cb(...args)
+    }, delay)
+  }
+}
+
+function throttle(cb, delay = 1000) {
+  let shouldWait = false
+  let waitingArgs
+
+  return (...args) => {
+    if (shouldWait) {
+      waitingArgs = args
+      return
+    }
+
+    cb(...args)
+    shouldWait = true
+
+    setTimeout(() => {
+    if (waitingArgs == null) {
+      shouldWait = false
+    } else {
+      cb(...waitingArgs)
+      waitingArgs = null
+      setTimeout(timeoutFunc, delay)
+    }
+  }, delay)
+  }
+}
+// Anotehr approach
+function throttle(cb, delay) {
+  let timerFlag = null; // Variable to keep track of the timer
+
+  // Returning a throttled version
+  return (...args) => {
+    if (timerFlag === null) { // If there is no timer currently running
+      cb(...args); // Execute the main function
+      timerFlag = setTimeout(() => { // Set a timer to clear the timerFlag after the specified delay
+        timerFlag = null; // Clear the timerFlag to allow the main function to be executed again
+      }, delay);
+    }
+  };
+}
+
+document.addEventListener("mousemove", e => {
+  incrementCount(defaultText)
+  updateDebounceText()
+  updateThrottleText()
+})
+
+function incrementCount(element) {
+  element.textContent = (parseInt(element.innerText) || 0) + 1
+}
+
+```
+
+## Key Differences
+
+**Debounce**: "Wait until they're done, then act"
+
+- Typing in search → waits 500ms after last keystroke → then searches
+
+**Throttle**: "Act at most once per time period"
+
+- Scrolling continuously → updates position every 100ms → ignores other scroll events in between
+
+Choose **debounce** when you want to wait for a final value. Choose **throttle** when you want regular, consistent updates during continuous activity.

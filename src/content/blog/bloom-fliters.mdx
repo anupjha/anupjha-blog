@@ -1,0 +1,52 @@
+---
+title: Bloom Filters
+description: Understand bloom filters in a easy way.
+date: 2024-02-12
+thumbnail: '/images/undraw/image-12.png'
+tags:
+  - systemdesign
+---
+
+Have you ever wondered how **Netflix** knows which shows you've already watched? Or how **Amazon** avoids showing you products you've already purchased? Or how **Gmail** checks for username already exists?
+
+Using a traditional data structure like a **hash table** for these checks could consume significant amount of **memory**, especially with millions of users and items.
+
+Instead, many systems rely on a more efficient data structure—a **Bloom Filter**.
+
+## **What is a Bloom Filter?**
+
+A **Bloom Filter** is a **probabilistic data structure** that allows you to quickly check whether an element might be in a set.
+
+It’s useful in scenarios where you need **fast lookups** and don’t want to use a large amount of memory, but you’re okay with occasional **false positives**.
+
+## Example
+
+Let's say we have a bit array of size 10 and 2 hash functions:
+
+`Initial: [0,0,0,0,0,0,0,0,0,0]`
+
+Adding "apple":
+
+- hash1("apple") = 2, hash2("apple") = 7
+- Set bits 2 and 7 to 1: `[0,0,1,0,0,0,0,1,0,0]`
+
+Adding "banana":
+
+- hash1("banana") = 3, hash2("banana") = 7
+- Set bits 3 and 7 to 1: `[0,0,1,1,0,0,0,1,0,0]`
+
+Querying "apple":
+
+- Check positions 2 and 7 → both are 1 → "apple" might be in the set
+
+Querying "orange":
+
+- hash1("orange") = 1, hash2("orange") = 5
+- Check positions 1 and 5 → both are 0 → "orange" is definitely not in the set
+
+## Key Properties
+
+- **No false negatives**: **If it says an element is not in the set, it's definitely not there**
+- **Possible false positives**: If it says an element might be in the set, it could be wrong
+- **Cannot remove elements**: Removing would affect other elements that share the same bit positions
+- **Space efficient**: Uses much less memory than storing the actual elements
