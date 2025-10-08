@@ -1,4 +1,3 @@
-import { siteConfig } from '@/lib/config';
 
 export function AboutCta() {
   return (

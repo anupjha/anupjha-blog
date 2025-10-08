@@ -7,7 +7,6 @@ import { absoluteUrl, formatDate } from '@/lib/utils';
 import { Author } from '@/components/content/author';
 import { CustomMDX } from '@/components/content/custom-mdx';
 import { Breadcrumb } from '@/components/layout/breadcrumb';
-import { BlurredHeroImage } from '@/components/shared/blurred-hero-image';
 import { LinkBadge } from '@/components/shared/link-badge';
 
 export const revalidate = false;
@@ -81,7 +80,6 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
       label: post.metadata.title,
     },
   ];
-  const thumbnailUrl = post.metadata.thumbnail;
 
   return (
     <div className="flex flex-1 flex-col">
