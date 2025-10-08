@@ -62,3 +62,7 @@ pnpm dev
 
 Visit **[http://localhost:3000](http://localhost:3000)** to see the site in action 🎅
 
+### Analytics
+Visit **[https://umami.is](https://umami.is)**
+
+

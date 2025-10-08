@@ -1,0 +1,256 @@
+---
+title: Top 10 TypeScript Interview Questions
+description: Must to TypeScript concepts.
+date: 2024-02-10
+thumbnail: '/images/undraw/image-10.png'
+tags:
+  - typescript
+---
+
+## 1. What are Conditional Types in TypeScript and when would you use them?
+
+**Answer:**
+
+Conditional types let you express **type-level logic**. They work like an `if/else` for types.
+
+**Syntax:**
+
+```javascript
+T extends U ? X : Y
+```
+
+- If `T` is assignable to `U`, the type resolves to `X`.
+- Otherwise, it resolves to `Y`.
+
+**Example:**
+
+```javascript
+type IsString<T> = T extends string ? "yes" : "no";
+
+type A = IsString<string>;   // "yes"
+type B = IsString<number>;   // "no"
+```
+
+**Real-world usage:**
+
+**Conditional types help build flexible APIs**
+
+```javascript
+function getValue<T>(value: T): T extends () => infer R ? R : T {
+  if (typeof value === "function") {
+    return (value as any)() // returns function result
+  }
+  return value as any;
+}
+
+const a = getValue(42);         // number
+const b = getValue(() => "Hi"); // string
+```
+
+👉 This allows functions to **adapt based on input** type.
+
+## 2. Explain `infer` in TypeScript with an example.
+
+**Answer:**
+
+`infer` allows you to **capture a type inside a conditional type**.
+
+**Example: Extracting Promise Result**
+
+```javascript
+type Awaited<T> = T extends Promise<infer U> ? U : T;
+
+type A = Awaited<Promise<number>>; // number
+type B = Awaited<string>;          // string
+```
+
+Here, `infer U` tells TypeScript: *“Try to infer the type `U` inside the Promise.”*
+
+**Real-world usage:**
+
+You often see `infer` in **utility types** like `ReturnType<T>` or `Parameters<T>`.
+
+```javascript
+type MyReturnType<T extends (...args: any[]) => any> =
+  T extends (...args: any[]) => infer R ? R : never;
+
+function greet() { return "hello"; }
+
+type GreetReturn = MyReturnType<typeof greet>; // "hello"
+```
+
+## 3. What is Type Narrowing, and how is it different from Type Assertions?
+
+**Answer:**
+
+- **Type Narrowing**: TypeScript automatically understands more specific types during control flow.
+- **Type Assertion**: You manually tell TypeScript the type (`as Type`).
+
+**Example of Narrowing:**
+
+```javascript
+function printId(id: string | number) {
+  if (typeof id === "string") {
+    console.log(id.toUpperCase()); // narrowed to string
+  } else {
+    console.log(id.toFixed(2));    // narrowed to number
+  }
+}
+```
+
+**Example of Assertion:**
+
+```
+let someValue: unknown = "hello";
+let strLength: number = (someValue as string).length;
+```
+
+👉 **Difference**: Narrowing is safe (compiler-checked), while assertions are manual and can be unsafe.
+
+## 4. What are Mapped Types? Give an advanced example.
+
+**Answer:**
+
+Mapped types allow you to **transform existing types**.
+
+**Example: Making properties optional**
+
+```
+type Partial<T> = { [P in keyof T]?: T[P] };
+```
+
+**Advanced Example: Immutable Type**
+
+```javascript
+type Immutable<T> = {
+  readonly [K in keyof T]: Immutable<T[K]>;
+};
+
+type User = {
+  name: string;
+  address: { city: string; zip: number };
+};
+
+type ReadonlyUser = Immutable<User>;
+```
+
+Now, `ReadonlyUser` makes all nested properties deeply `readonly`.
+
+## 5. Explain `never`, `unknown`, and `any`.
+
+- **`any`**: Opts out of type checking (unsafe).
+- **`unknown`**: Safer alternative; you must check the type before using.
+- **`never`**: Represents impossible values. Often used in exhaustive checks.
+
+**Example:**
+
+```javascript
+function exhaustive(x: "a" | "b"): number {
+  switch (x) {
+    case "a": return 1;
+    case "b": return 2;
+    default:
+      const check: never = x; // ensures no missing cases
+      return check;
+  }
+}
+```
+
+## 6. How does TypeScript handle Union vs Intersection types?
+**Answer:**
+- **Union (`|`)**: Value can be *one of many*.
+
+```javascript
+type A = string | number;
+let x: A = "hello"; // ok
+x = 42;             // ok
+```
+
+- **Intersection (`&`)**: Value must satisfy *all at once*.
+
+```javascript
+type B = { name: string } & { age: number };
+const person: B = { name: "Alex", age: 30 }; // must have both
+```
+
+👉 Common interview trick: ask candidates what happens if you do:
+
+```
+type C = string & number; // never
+```
+
+## 7. What are Utility Types in TypeScript? Give examples.
+
+**Answer:**
+
+TypeScript ships with built-in **utility types** that manipulate existing types.
+
+- `Partial<T>` → all properties optional
+- `Required<T>` → all properties required
+- `Pick<T, K>` → select specific properties
+- `Omit<T, K>` → exclude specific properties
+- `ReturnType<T>` → function return type
+
+**Example:**
+
+```javascript
+type User = { id: number; name: string; email?: string };
+
+type UserPreview = Pick<User, "id" | "name">;
+```
+
+## 8. Explain Variance in TypeScript.
+
+**Answer:**
+
+Variance describes how subtyping works in **generic types**.
+
+- **Covariant** → Safe to substitute subtype.
+- **Contravariant** → Safe to substitute supertype.
+- **Invariant** → No substitution allowed.
+
+**Example:**
+
+```javascript
+type Fn<T> = (arg: T) => void;
+
+let fn1: Fn<string> = (s: string) => {};
+let fn2: Fn<unknown> = fn1; // contravariance
+```
+
+> 👉 This is tricky, but shows up in event handler types and callback design.
+>
+
+## 9. How does TypeScript support Template Literal Types?
+
+**Answer:**
+
+They let you build **string types dynamically**.
+
+**Example:**
+
+```javascript
+type EventName<T extends string> = `on${Capitalize<T>}`;
+
+type Click = EventName<"click">;   // "onClick"
+type Change = EventName<"change">; // "onChange"
+```
+
+👉 Used in **React event typings**, **framework APIs**, and **string-based DSLs**.
+
+## 10. Explain Declaration Merging.
+
+**Answer:**
+
+In TypeScript, multiple declarations of the same name are merged into one.
+
+**Example:**
+
+```javascript
+interface User { id: number; }
+interface User { name: string; }
+
+const u: User = { id: 1, name: "Alex" };
+```
+
+👉 This is heavily used in **extending library types** (like Express request objects).

