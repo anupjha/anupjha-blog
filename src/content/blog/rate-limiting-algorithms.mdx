@@ -1,0 +1,307 @@
+---
+title: Rate Limiting Algorithms
+description: Rate limiting helps protects services from being overwhelmed by too many requests from a single user or client.
+date: 2024-06-06
+thumbnail: '/images/undraw/image-06.png'
+tags:
+  - systemdesign
+---
+
+<Callout>
+Rate limiting is a crucial technique for controlling the rate of requests to a system, API, or service. Here are the main algorithms used:
+</Callout>
+
+## 1. **Token Bucket**
+
+The most popular and flexible algorithm. A bucket holds tokens that are added at a fixed rate. Each request consumes a token.
+
+**How it works:**
+
+- Tokens are added to a bucket at a constant rate
+- Bucket has a maximum capacity
+- Each request consumes one (or more) tokens
+- If no tokens available, request is rejected
+- Allows burst traffic up to bucket capacity
+
+**Pros:** Handles bursts well, smooth over time
+**Cons:** Can be tricky to tune parameters
+
+**Implementation**
+
+```javascript
+/ 1. TOKEN BUCKET
+class TokenBucket {
+  constructor(capacity, refillRate) {
+    this.capacity = capacity;
+    this.tokens = capacity;
+    this.refillRate = refillRate; // tokens per second
+    this.lastRefill = Date.now();
+  }
+
+  refill() {
+    const now = Date.now();
+    const elapsed = (now - this.lastRefill) / 1000;
+    this.tokens = Math.min(this.capacity, this.tokens + elapsed * this.refillRate);
+    this.lastRefill = now;
+  }
+
+  allow(tokens = 1) {
+    this.refill();
+    if (this.tokens >= tokens) {
+      this.tokens -= tokens;
+      return true;
+    }
+    return false;
+  }
+}
+```
+
+## 2. **Leaky Bucket**
+
+Processes requests at a constant rate, like water leaking from a bucket.
+
+**How it works:**
+
+- Requests enter a queue (bucket)
+- Requests are processed at a fixed rate
+- If bucket is full, new requests are rejected
+- Ensures smooth, constant output rate
+
+**Pros:** Smooths out traffic spikes, predictable output
+**Cons:** Can't handle legitimate bursts, may queue requests unnecessarily
+
+**Implementation**
+
+```javascript
+// 2. LEAKY BUCKET
+class LeakyBucket {
+  constructor(capacity, leakRate) {
+    this.capacity = capacity;
+    this.queue = [];
+    this.leakRate = leakRate; // requests per second
+    this.lastLeak = Date.now();
+  }
+
+  leak() {
+    const now = Date.now();
+    const elapsed = (now - this.lastLeak) / 1000;
+    const leaked = Math.floor(elapsed * this.leakRate);
+    this.queue.splice(0, leaked);
+    this.lastLeak = now;
+  }
+
+  allow() {
+    this.leak();
+    if (this.queue.length < this.capacity) {
+      this.queue.push(Date.now());
+      return true;
+    }
+    return false;
+  }
+}
+```
+
+## 3. **Fixed Window Counter**
+
+Counts requests in fixed time windows (e.g., per minute).
+
+**How it works:**
+
+- Time divided into fixed windows (e.g., 0-60s, 60-120s)
+- Count requests in current window
+- Reset counter when window changes
+- Reject if count exceeds limit
+
+**Pros:** Simple to implement, memory efficient
+**Cons:** Burst problem at window boundaries (can get 2x limit across two adjacent windows)
+
+**Implementation**
+
+```javascript
+// 3. FIXED WINDOW COUNTER
+class FixedWindowCounter {
+  constructor(limit, windowMs) {
+    this.limit = limit;
+    this.windowMs = windowMs;
+    this.counter = 0;
+    this.windowStart = Date.now();
+  }
+
+  allow() {
+    const now = Date.now();
+    if (now - this.windowStart >= this.windowMs) {
+      this.counter = 0;
+      this.windowStart = now;
+    }
+    if (this.counter < this.limit) {
+      this.counter++;
+      return true;
+    }
+    return false;
+  }
+}
+```
+
+## 4. **Sliding Window Log**
+
+Tracks timestamp of each request to provide precise rate limiting.
+
+**How it works:**
+
+- Store timestamp of each request
+- For new request, count requests in past time window
+- Remove old timestamps outside window
+- Reject if count exceeds limit
+
+**Pros:** Precise, no boundary issues
+**Cons:** Memory intensive (stores all timestamps)
+
+**Implementation**
+
+```javascript
+// 4. SLIDING WINDOW LOG
+class SlidingWindowLog {
+  constructor(limit, windowMs) {
+    this.limit = limit;
+    this.windowMs = windowMs;
+    this.requests = [];
+  }
+
+  allow() {
+    const now = Date.now();
+    const cutoff = now - this.windowMs;
+    this.requests = this.requests.filter(t => t > cutoff);
+
+    if (this.requests.length < this.limit) {
+      this.requests.push(now);
+      return true;
+    }
+    return false;
+  }
+}
+```
+
+## 5. **Sliding Window Counter**
+
+Hybrid approach combining fixed window and sliding window concepts.
+
+**How it works:**
+
+- Maintains counters for current and previous windows
+- Calculates weighted count based on time position in current window
+- More accurate than fixed window, less memory than sliding log
+
+**Pros:** Good balance of accuracy and efficiency
+**Cons:** Slightly more complex than fixed window
+
+**Implementation**
+
+```javascript
+// 5. SLIDING WINDOW COUNTER
+class SlidingWindowCounter {
+  constructor(limit, windowMs) {
+    this.limit = limit;
+    this.windowMs = windowMs;
+    this.currentWindow = { start: Date.now(), count: 0 };
+    this.previousWindow = { start: 0, count: 0 };
+  }
+
+  allow() {
+    const now = Date.now();
+    const elapsed = now - this.currentWindow.start;
+
+    if (elapsed >= this.windowMs) {
+      this.previousWindow = this.currentWindow;
+      this.currentWindow = { start: now, count: 0 };
+    }
+
+    const prevWeight = Math.max(0, 1 - elapsed / this.windowMs);
+    const weightedCount = this.previousWindow.count * prevWeight + this.currentWindow.count;
+
+    if (weightedCount < this.limit) {
+      this.currentWindow.count++;
+      return true;
+    }
+    return false;
+  }
+}
+```
+
+## 6. **Concurrent Request Limiter**
+
+Limits number of simultaneous requests rather than rate.
+
+**How it works:**
+
+- Track active concurrent requests
+- Reject new requests if limit reached
+- Decrement counter when request completes
+
+**Pros:** Protects against resource exhaustion
+**Cons:** Doesn't limit request rate over time
+
+**Implementation**
+
+```javascript
+// 6. CONCURRENT REQUEST LIMITER
+class ConcurrentLimiter {
+  constructor(maxConcurrent) {
+    this.maxConcurrent = maxConcurrent;
+    this.current = 0;
+  }
+
+  acquire() {
+    if (this.current < this.maxConcurrent) {
+      this.current++;
+      return true;
+    }
+    return false;
+  }
+
+  release() {
+    this.current = Math.max(0, this.current - 1);
+  }
+}
+
+```
+
+## Choosing an Algorithm
+
+- **Token Bucket**: Best for most APIs, allows reasonable bursts
+- **Leaky Bucket**: When you need perfectly smooth rate
+- **Fixed Window**: Simple needs, can tolerate edge cases
+- **Sliding Window Log**: When precision is critical and memory isn't constrained
+- **Sliding Window Counter**: Good middle ground
+- **Concurrent Limiter**: For resource protection
+
+**Usage**
+
+```javascript
+// USAGE EXAMPLES
+console.log('=== TOKEN BUCKET ===');
+const tb = new TokenBucket(10, 2); // 10 tokens, refill 2/sec
+console.log(tb.allow(5)); // true
+console.log(tb.allow(6)); // false (only 5 tokens left)
+
+console.log('\n=== FIXED WINDOW ===');
+const fw = new FixedWindowCounter(3, 1000); // 3 requests per second
+console.log(fw.allow()); // true
+console.log(fw.allow()); // true
+console.log(fw.allow()); // true
+console.log(fw.allow()); // false (limit reached)
+
+console.log('\n=== SLIDING WINDOW LOG ===');
+const sw = new SlidingWindowLog(5, 2000); // 5 requests per 2 seconds
+for (let i = 0; i < 6; i++) {
+  console.log(`Request ${i + 1}:`, sw.allow());
+}
+
+console.log('\n=== CONCURRENT LIMITER ===');
+const cl = new ConcurrentLimiter(3);
+console.log(cl.acquire()); // true
+console.log(cl.acquire()); // true
+console.log(cl.acquire()); // true
+console.log(cl.acquire()); // false (max reached)
+cl.release();
+console.log(cl.acquire()); // true (slot available)
+```
