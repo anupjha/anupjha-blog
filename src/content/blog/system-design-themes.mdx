@@ -1,0 +1,258 @@
+---
+title: System Design Golden Rules
+description: System Design Themes for Interviews.
+date: 2024-06-05
+thumbnail: '/images/undraw/image-05.png'
+tags:
+  - systemdesign
+---
+
+<Callout>
+ Each system design focuses on specific technical challenges that are central to that particular application's core functionality and user experience! Here's a comprehensive breakdown of the focus areas for each system design question:
+</Callout>
+
+## 1. Social Networks & Messaging
+
+**Design Twitter Feed**
+
+- **Focus**: Scalability, Fan-out architecture, Timeline generation, Caching strategies
+
+**Design Instagram Feed**
+
+- **Focus**: Image/media storage, CDN distribution, Feed ranking algorithms, Caching
+
+**Design WhatsApp Messaging**
+
+- **Focus**: Real-time messaging, End-to-end encryption, Message delivery guarantees, Offline message handling
+
+**Design Facebook Messenger**
+
+- **Focus**: Real-time communication, Message persistence, Read receipts, Group messaging scalability
+
+**Design Twitter Direct Messages**
+
+- **Focus**: Real-time messaging, Message threading, Encryption, User presence/online status
+
+**Design Instagram Stories**
+
+- **Focus**: Ephemeral content, TTL (Time-to-Live), Media processing, CDN delivery, View tracking
+
+**Design Instagram Ads**
+
+- **Focus**: Targeting algorithms, Auction system, Budget pacing, Analytics & tracking, A/B testing
+
+**Design Twitter Notifications**
+
+- **Focus**: Push notification delivery, Notification aggregation, User preferences, Delivery guarantees
+
+**Design Tinder**
+
+- **Focus**: Geospatial indexing, Matching algorithms, Real-time messaging, Recommendation system
+
+**Design Reddit**
+
+- **Focus**: Voting system, Comment threading, Ranking algorithms, Caching, Sharding
+
+**Design Facebook News Feed**
+
+- **Focus**: Feed ranking (EdgeRank), Content aggregation, Personalization, Real-time updates
+
+**Design LinkedIn Connections**
+
+- **Focus**: Graph database, Connection recommendations, Mutual connections, Network traversal
+
+**Design Notification Service**
+
+- **Focus**: Multi-channel delivery (push, email, SMS), Rate limiting, Retry mechanisms, Prioritization
+
+**Design Facebook Messenger Payments**
+
+- **Focus**: Payment processing, Transaction consistency, Security, PCI compliance, Fraud detection
+
+---
+
+## 2. Media Streaming & Recommendations
+
+**Design Spotify Playlist**
+
+- **Focus**: Collaborative filtering, Playlist storage, Real-time collaboration, Conflict resolution
+
+**Design Netflix Playlist**
+
+- **Focus**: User preferences storage, Continue watching state, Cross-device sync
+
+**Design Netflix Recommendations**
+
+- **Focus**: Machine learning pipelines, Collaborative filtering, A/B testing, Personalization at scale
+
+**Design YouTube Streaming**
+
+- **Focus**: Adaptive bitrate streaming, CDN strategy, Video transcoding, Global distribution
+
+**Design Spotify Connect**
+
+- **Focus**: Multi-device sync, Real-time state management, Device discovery, Low-latency communication
+
+**Design Spotify Discover Weekly**
+
+- **Focus**: Recommendation algorithms, Batch processing, User taste profiling, Music graph
+
+**Design Instagram Reels**
+
+- **Focus**: Video processing, Recommendation feed, Engagement metrics, CDN delivery
+
+**Design TikTok Feed**
+
+- **Focus**: For You Page algorithm, Video recommendations, Engagement tracking, Real-time updates
+
+**Design YouTube**
+
+- **Focus**: Video upload/processing, Transcoding pipeline, Search & discovery, View counting
+
+**Design Amazon Recommendations**
+
+- **Focus**: Collaborative filtering, Item-to-item recommendations, Real-time personalization, A/B testing
+
+---
+
+## 3. E-commerce & Marketplaces
+
+**Design Amazon Shopping Cart**
+
+- **Focus**: Session management, Inventory reservation, Cart persistence, Consistency guarantees
+
+**Design Amazon E-commerce Store**
+
+- **Focus**: Product catalog, Search & filtering, Inventory management, Order processing, Scalability
+
+**Design Shopify Store**
+
+- **Focus**: Multi-tenancy, Theme customization, Payment integration, Scalability for merchants
+
+**Design Flight Booking System**
+
+- **Focus**: Seat inventory, Concurrent booking handling, ACID transactions, Distributed locking
+
+**Design Stock Exchange System**
+
+- **Focus**: Low latency, Order matching engine, ACID transactions, High throughput, Fairness
+
+**Design Payment System**
+
+- **Focus**: Transaction consistency, Idempotency, Security, Reconciliation, Fraud detection
+
+**Design Uber Eats**
+
+- **Focus**: Three-sided marketplace, Real-time tracking, Order matching, Routing optimization
+
+**Design Uber Dispatch System**
+
+- **Focus**: Geospatial matching, Real-time location tracking, Supply-demand balancing, Routing
+
+**Design Food Delivery App**
+
+- **Focus**: Order management, Real-time tracking, Delivery optimization, Restaurant/driver coordination
+
+**Design Uber Pool**
+
+- **Focus**: Ride matching algorithms, Route optimization, Dynamic pricing, Real-time adjustments
+
+**Design Uber Freight**
+
+- **Focus**: Load matching, Route optimization, Capacity management, Marketplace dynamics
+
+**Design Booking System (BookMyShow)**
+
+- **Focus**: Seat reservation, Concurrency control, Payment integration, Ticket generation
+
+---
+
+## 4. File Storage, Collaboration & Productivity
+
+**Design Google Drive**
+
+- **Focus**: File storage, Metadata management, Sync across devices, Sharing permissions, Versioning
+
+**Design Google Docs**
+
+- **Focus**: Real-time collaboration, Operational Transformation (OT) or CRDT, Conflict resolution, Auto-save
+
+**Design Dropbox File Sharing**
+
+- **Focus**: File sync, Chunking & deduplication, Conflict resolution, Delta sync
+
+**Design Distributed Cloud Storage (S3)**
+
+- **Focus**: Object storage, Replication, Durability, Availability, Versioning, Partitioning
+
+**Design Online Code Editor**
+
+- **Focus**: Real-time collaboration, Syntax highlighting, Code execution sandbox, Low latency
+
+**Design Code Deployment System**
+
+- **Focus**: CI/CD pipeline, Blue-green deployment, Rollback mechanisms, Health checks, Orchestration
+
+**Design File Sharing System**
+
+- **Focus**: Upload/download optimization, Access control, Link generation, Expiration policies
+
+**Design Distributed Web Crawler**
+
+- **Focus**: URL frontier, Politeness policies, Deduplication, Distributed coordination, Scalability
+
+---
+
+## 5. Infrastructure & Distributed Systems
+
+**Design Distributed Message Queue (Kafka)**
+
+- **Focus**: Message ordering, Partitioning, Replication, Durability, Consumer groups, Scalability
+
+**Design Amazon SQS**
+
+- **Focus**: At-least-once delivery, Message visibility timeout, Dead letter queues, Scalability
+
+**Design Distributed Locking Service**
+
+- **Focus**: Consensus algorithms (Raft/Paxos), Fault tolerance, Lock acquisition/release, Deadlock prevention
+
+**Design Amazon EC2**
+
+- **Focus**: Resource allocation, VM provisioning, Load balancing, Auto-scaling, Multi-tenancy
+
+**Design Amazon DynamoDB**
+
+- **Focus**: NoSQL design, Partitioning, Consistent hashing, Eventual consistency, GSI/LSI
+
+**Design Amazon Redshift**
+
+- **Focus**: Data warehousing, Columnar storage, Query optimization, ETL pipelines, Analytics
+
+**Design AWS S3**
+
+- **Focus**: Object storage, Replication, Durability (11 9s), Versioning, Lifecycle policies
+
+**Design Google Analytics**
+
+- **Focus**: Event collection, Real-time processing, Data aggregation, Report generation, Scalability
+
+**Design Analytics Platform (Metrics & Logging)**
+
+- **Focus**: Log aggregation, Time-series data, Real-time dashboards, Data retention, Query performance
+
+---
+
+## 6. Search & Discovery
+
+**Design Google Search**
+
+- **Focus**: Web crawling, Indexing, Ranking algorithms (PageRank), Query processing, Distributed systems
+
+**Design Twitter Search**
+
+- **Focus**: Real-time indexing, Relevance ranking, Hashtag search, User search, Scalability
+
+**Design Autocomplete for Search Engines**
+
+- **Focus**: Trie data structure, Prefix matching, Ranking suggestions, Caching, Low latency

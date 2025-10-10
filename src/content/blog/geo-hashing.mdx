@@ -1,0 +1,366 @@
+---
+title: GeoHashing
+description: Efficient Spatial Indexing for Location-Based Services.
+date: 2024-06-01
+thumbnail: '/images/undraw/image-01.png'
+tags:
+  - systemdesign
+---
+
+## The Problem: Efficient Proximity Search at Scale
+
+Consider a typical location-based query: finding all restaurants within 1km of a user's coordinates **(lat: 34.0523, lon: -118.2438)**.
+
+### The Naive Approach
+
+A straightforward bounding box query might look like:
+
+```sql
+SELECT * FROM restaurants
+WHERE latitude BETWEEN 34.04 AND 34.06
+  AND longitude BETWEEN -118.25 AND -118.23;
+
+```
+
+**Why This Fails at Scale:**
+
+Traditional databases use **B-tree indexes**, which excel at one-dimensional range queries. However, 2D spatial queries present a fundamental challenge:
+
+- A B-tree index on `latitude` allows efficient filtering of the first dimension
+- But then requires a **full table scan** of matching rows to filter by `longitude`
+- Even a composite index `(latitude, longitude)` doesn't truly understand spatial locality
+
+**The core issue:** We need to preserve 2D proximity in a 1D format that standard database indexes can efficiently query.
+
+---
+
+## What is GeoHashing?
+
+**GeoHashing** is a spatial encoding technique that converts 2D coordinates into hierarchical, one-dimensional strings that preserve spatial locality.
+
+Invented by **Gustavo Niemeyer in 2008**, it enables efficient proximity searches using standard database indexes.
+
+**Example:** San Francisco downtown **(37.7749, -122.4194)** → **9q8yyf**
+
+### Key Properties
+
+**1. Hierarchical Prefix Matching**
+
+GeoHashes exhibit a critical property: **common prefixes indicate spatial proximity**.
+
+- `9q8yyf` and `9q8yyu` → Share 5 characters → ~19m apart
+- `9q8yyf` and `9q9pvu` → Share 2 characters → ~78km apart
+- `9q8yyf` and `a2sed7` → Share 0 characters → Different continents
+
+This hierarchical structure allows "zoom levels" by varying hash length.
+
+**2. Dimension Reduction**
+
+GeoHashes reduce a 2D spatial problem to a 1D string comparison problem:
+
+- Stored as `VARCHAR` or `TEXT` in any relational/NoSQL database
+- Indexed using standard B-tree or Trie structures
+- Enables fast prefix matching: `WHERE geohash LIKE '9q8%'`
+
+---
+
+## The Encoding Algorithm
+
+GeoHashing uses **recursive bisection** and **bit interleaving** to map coordinates to strings.
+
+### Step 1: Binary Encoding via Recursive Bisection
+
+For each dimension (longitude, then latitude), repeatedly divide the range and record bits:
+
+**Longitude Example: -122.4194°**
+
+Starting range: [-180°, +180°]
+
+1. Midpoint = 0° → -122.4194 {'<'} 0 → **0** → Range: [-180, 0]
+2. Midpoint = -90° → -122.4194 {'<'} -90 → **0** → Range: [-180, -90]
+3. Midpoint = -135° → -122.4194 {'>'} -135 → **1** → Range: [-135, -90]
+4. Midpoint = -112.5° → -122.4194 {'<'} -112.5 → **0** → Range: [-135, -112.5]
+5. Midpoint = -123.75° → -122.4194 {'>'} -123.75 → **1** → Range: [-123.75, -112.5]
+
+First 5 bits: `00101`
+
+**Latitude: 37.7749°**
+
+Starting range: [-90°, +90°]
+
+Following the same process → First 5 bits: `10110`
+
+### Step 2: Bit Interleaving (Z-Order Curve)
+
+Interleave longitude and latitude bits alternately:
+
+```
+Longitude:  0  0  1  0  1
+Latitude:    1  0  1  1  0
+            ↓  ↓  ↓  ↓  ↓
+Interleaved: 01 00 11 10 10
+Result: 0100111010
+
+```
+
+This interleaving follows a **Morton curve** (Z-order space-filling curve), which preserves spatial locality in 1D.
+
+### Step 3: Base32 Encoding
+
+Convert the binary string to Base32 using this alphabet:
+
+```
+0123456789bcdefghjkmnpqrstuvwxyz
+
+```
+
+(Note: `a`, `i`, `l`, `o` are excluded to avoid confusion)
+
+**Process:**
+
+1. Split binary into 5-bit chunks
+2. Map each chunk to a Base32 character
+
+```
+01001 → 9
+11010 → u
+10011 → r
+00101 → 5
+
+```
+
+Result: **9ur5**
+
+### Precision Control
+
+| Length | Cell Width × Height | Use Case |
+| --- | --- | --- |
+| 1 char | ±2,500 km | Country-level |
+| 3 chars | ±78 km | City-level |
+| 5 chars | ±2.4 km | Neighborhood |
+| 7 chars | ±76 m | Building |
+| 9 chars | ±2.4 m | Room-level |
+
+---
+
+## Implementation Strategy
+
+### Database Schema Design
+
+```sql
+CREATE TABLE restaurants (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255),
+    latitude DECIMAL(10, 8),
+    longitude DECIMAL(11, 8),
+    geohash VARCHAR(12),
+    -- other fields
+);
+
+CREATE INDEX idx_geohash ON restaurants(geohash);
+
+```
+
+**On insert/update:**
+
+```javascript
+restaurant.geohash = calculateGeohash(latitude, longitude, precision=7)
+
+```
+
+### Query Pattern: The Neighbor Problem
+
+**Critical Issue:** Points near cell boundaries may be closer to locations in adjacent cells.
+
+**Solution:** Query the target cell **plus its 8 neighbors** (Moore neighborhood).
+
+```sql
+SELECT * FROM restaurants
+WHERE geohash IN (
+    'dr5ruj6',  -- center cell
+    'dr5ruj7',  -- neighbor 1
+    'dr5ruj4',  -- neighbor 2
+    -- ... 6 more neighbors
+)
+
+```
+
+**Finding Neighbors:**
+Use a GeoHash library (most languages have implementations) or implement the neighbor calculation algorithm.
+
+### Complete Query Pipeline
+
+```jsx
+async function findNearby(userLat, userLon, radiusKm) {
+    // 1. Calculate user's geohash
+    const userGeohash = geohash.encode(userLat, userLon, 7);
+
+    // 2. Get all 9 cells (center + 8 neighbors)
+    const neighbors = geohash.neighbors(userGeohash);
+    const cells = [userGeohash, ...neighbors];
+
+    // 3. Database query (fast prefix match)
+    const candidates = await db.query(
+        "SELECT * FROM restaurants WHERE geohash IN (?)",
+        [cells]
+    );
+
+    // 4. Post-filtering with Haversine formula
+    const results = [];
+    for (const restaurant of candidates) {
+        const distance = haversineDistance(
+            userLat, userLon,
+            restaurant.latitude, restaurant.longitude
+        );
+        if (distance <= radiusKm) {
+            results.push({ restaurant, distance });
+        }
+    }
+
+    // 5. Sort by distance
+    return results.sort((a, b) => a.distance - b.distance);
+}
+
+```
+
+**Performance:** The expensive Haversine calculation runs on ~100s of candidates, not millions of rows.
+
+---
+
+## Real-World Applications
+
+### Uber/Lyft: Driver-Rider Matching
+
+**Challenge:** Match riders with nearby drivers in real-time across millions of active drivers.
+
+**Implementation:**
+
+1. Partition drivers into GeoHash buckets (precision 6-7)
+2. When ride requested, query driver's GeoHash + neighbors
+3. Find closest available drivers in {'<'}100ms
+
+**Optimization:** Use GeoHash as sharding key across microservices.
+
+### Elasticsearch Geospatial Aggregations
+
+Elasticsearch uses `geohash_grid` aggregations internally:
+
+```json
+{
+  "aggs": {
+    "locations": {
+      "geohash_grid": {
+        "field": "location",
+        "precision": 5
+      }
+    }
+  }
+}
+
+```
+
+This efficiently buckets millions of documents by location for heatmap visualizations.
+
+---
+
+## Limitations and Trade-offs
+
+### Advantages
+
+✅ **O(log n) lookups** via standard B-tree indexes
+
+✅ **Horizontal scalability** - Easy sharding by prefix
+
+✅ **Database agnostic** - Works with any system supporting string indexes
+
+✅ **Hierarchical** - Adjustable precision for different use cases
+
+### Disadvantages
+
+❌ **Edge discontinuities** - Requires neighbor querying (9x cells)
+
+❌ **Cell shape distortion** - Rectangular cells, worse near poles
+
+❌ **Approximate search** - Not true k-NN, requires post-filtering
+
+❌ **False positives** - Points in same cell may be farther than neighbors
+
+### Complexity Analysis
+
+- **Encoding:** O(precision) - typically O(1) for fixed precision
+- **Neighbor calculation:** O(1)
+- **Query:** O(log n) index lookup + O(k) post-filtering
+- **Space:** O(precision) per entry - typically 7-9 bytes
+
+---
+
+## Alternative Approaches
+
+### R-trees (PostGIS, Oracle Spatial)
+
+**Structure:** Tree of Minimum Bounding Rectangles (MBRs)
+
+**Pros:**
+
+- True spatial index supporting containment, intersection, k-NN
+- Better handling of edge cases
+- Native support in spatial databases
+
+**Cons:**
+
+- Requires specialized database extensions
+- More complex implementation
+- Higher index maintenance cost
+
+### Quadtrees
+
+**Structure:** Recursive 2D space partitioning into quadrants
+
+**Relationship to GeoHash:** GeoHashing is essentially a linearized quadtree traversal using a Z-order curve.
+
+### S2 Geometry (Google)
+
+**Structure:** Hierarchical decomposition of sphere into cells
+
+**Advantages:**
+
+- Better handling of spherical geometry
+- Uniform cell sizes
+- More accurate distance calculations
+
+**Used by:** Google Maps, Pokémon Go
+
+### H3 (Uber)
+
+**Structure:** Hexagonal hierarchical spatial index
+
+**Advantages:**
+
+- Uniform cell shapes (hexagons tile better than rectangles)
+- More consistent neighbor distances
+- Optimized for ridesharing use cases
+
+---
+
+## Best Practices
+
+1. **Choose precision based on use case:**
+    - 6 chars (~600m) for restaurant search
+    - 7 chars (~75m) for pickup points
+    - 8 chars (~20m) for exact locations
+2. **Always query neighbors** to avoid boundary issues
+3. **Use post-filtering** with Haversine/Vincenty for accuracy
+4. **Consider hybrid approach:** GeoHash for candidate selection + R-tree for refinement
+5. **Monitor query performance:** If querying 9 cells is too slow, reduce precision
+
+---
+
+## Key Takeaways
+
+- **GeoHashing reduces 2D spatial queries to 1D prefix matching**
+- **Enables sub-100ms proximity searches** on millions of points using standard databases
+- **Requires neighbor querying** to handle edge cases properly
+- **Best used as a filtering step** followed by exact distance calculation
+- **Production-ready for location-based services** at scale (Uber, Elasticsearch, MongoDB)
+
+GeoHashing provides an elegant balance between simplicity, performance, and scalability for most location-based applications.

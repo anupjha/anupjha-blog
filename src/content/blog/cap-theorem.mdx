@@ -1,0 +1,71 @@
+---
+title: CAP Theorem
+description: CAP Theorem Explained.
+date: 2025-06-02
+thumbnail: '/images/undraw/image-02.png'
+tags:
+  - systemdesign
+---
+
+<Callout>
+The CAP theorem, proposed by Eric Brewer in 2000, states that a distributed data system can only guarantee two out of three properties simultaneously:
+</Callout>
+
+<Image
+  src="/images/blogs/cap-theorem.webp"
+  width="1598"
+  height="1236"
+  alt="Image"
+/>
+
+## The Three Properties
+
+**Consistency (C)**: Every read receives the most recent write or an error. All nodes see the same data at the same time.
+
+**Availability (A)**: Every request receives a non-error response, without guaranteeing it contains the most recent write. The system remains operational even if some nodes fail.
+
+**Partition Tolerance (P)**: The system continues to operate despite network partitions (communication breaks between nodes). This is essential for any distributed system.
+
+## Why Only Two?
+
+In reality, partition tolerance is non-negotiable for distributed systems since network failures are inevitable. So the practical choice becomes between **CP** (Consistency + Partition Tolerance) or **AP** (Availability + Partition Tolerance).
+
+## Real-World Examples
+
+### CP Systems (Consistency + Partition Tolerance)
+
+**Example: Banking systems, MongoDB (with default settings), HBase**
+
+Imagine a banking app where your account balance is $1000. You withdraw $500 from an ATM. If the system is CP:
+
+- The system ensures all nodes reflect the new balance ($500) before confirming the transaction
+- If a network partition occurs, the system may reject requests rather than show inconsistent data
+- You might get an error message, but you'll never see an incorrect balance
+
+### AP Systems (Availability + Partition Tolerance)
+
+**Example: Cassandra, DynamoDB, DNS**
+
+Consider a social media "likes" counter. If the system is AP:
+
+- The system remains available even during network partitions
+- Different users might temporarily see different like counts (eventual consistency)
+- All requests get responses, but they might not reflect the absolute latest state
+- Eventually, all nodes sync up and show the same count
+
+### CA Systems (Consistency + Availability)
+
+**Example: Traditional relational databases (PostgreSQL, MySQL) in single-node setup**
+
+A single-server database can provide both consistency and availability, but it's not truly distributed and can't tolerate network partitions. If the server goes down, the entire system fails.
+
+## Practical Scenario
+
+Imagine an e-commerce shopping cart system split across two data centers:
+
+**Network partition occurs** (the data centers can't communicate):
+
+- **CP approach**: The system rejects cart updates to maintain consistency. Users might see error messages like "Service temporarily unavailable."
+- **AP approach**: Both data centers accept cart updates independently. Users in both locations can shop, but their carts might temporarily diverge. The system resolves conflicts later (maybe merging items or keeping the latest update).
+
+Most modern distributed systems choose AP and implement "eventual consistency," accepting temporary inconsistencies in exchange for always being available.
