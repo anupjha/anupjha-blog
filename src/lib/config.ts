@@ -1,7 +1,7 @@
 export const siteConfig = {
   name: 'anupjha-blog',
   description:
-    'anupjha-blog is a lightweight, minimalistic blog template built with Next.js (v15), MDX, Tailwind CSS (v4), and shadcn/ui',
+    'System Design, Next.js, Tailwind CSS, TypeScript, JavaScript and more.',
   url: 'https://anupjha.com/',
   ogImage: 'https://anupjha.com/og.png',
   links: {
