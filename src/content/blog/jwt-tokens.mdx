@@ -1,0 +1,477 @@
+---
+title: JSON Web Token
+description: Understanding JSON Web Tokens (JWT) - A Comprehensive Guide.
+date: 2025-02-09
+thumbnail: '/images/undraw/image-12.png'
+tags:
+  - systemdesign
+---
+
+## Introduction: Why JWTs Matter
+
+In modern application development, secure communication between different services is essential. JSON Web Tokens (JWTs) have become the industry standard for handling authentication and authorization across web applications, mobile apps, and distributed systems.
+
+A JWT is a compact, URL-safe token that securely transmits information between parties—typically between a client and server. Think of it as a **digital passport** that proves your identity without requiring the server to remember who you are.
+
+### Key Benefits of JWTs
+
+**Stateless Authentication**: All necessary user information (user ID, role, permissions, expiration) is contained within the token itself. The server doesn't need to maintain session state or query a database for every request.
+
+**Scalability**: Because JWTs are self-contained, they excel in distributed systems and microservices architectures. Multiple services can independently verify tokens using a shared public key, eliminating bottlenecks.
+
+**Security**: JWTs are digitally signed, ensuring the data hasn't been tampered with. The signature verification process guarantees token authenticity without decryption.
+
+**Flexibility**: You can include custom claims tailored to your application's needs—user roles, tenant IDs, permissions, or any relevant metadata.
+
+**Performance**: Verifying a cryptographic signature is typically faster than making database calls to validate sessions, especially when using HMAC algorithms.
+
+**Cross-Domain Compatibility**: JWTs work seamlessly across different domains since they're transmitted in HTTP headers, unlike cookies which have stricter domain policies.
+
+---
+
+## The Anatomy of a JWT
+
+Every JWT consists of three parts separated by dots:
+
+```
+header.payload.signature
+
+```
+
+Each component serves a specific purpose in ensuring the token's integrity and usefulness.
+
+### 1. Header
+
+The header contains metadata about how the token was created:
+
+```json
+{
+  "alg": "HS256",
+  "typ": "JWT"
+}
+
+```
+
+- **`alg`** (Algorithm): Specifies the cryptographic algorithm used to sign the token. Common options include HS256 (HMAC with SHA-256) and RS256 (RSA with SHA-256).
+- **`typ`** (Type): Always set to "JWT" to identify the token format.
+
+This JSON object is Base64URL-encoded to create the first part of the token.
+
+### 2. Payload
+
+The payload contains **claims**—statements about the user or system. There are three categories of claims:
+
+### Registered Claims
+
+These are standardized, recommended (but optional) claims defined in the JWT specification:
+
+- **`iss`** (Issuer): Who created and issued the token (e.g., your authentication service)
+- **`sub`** (Subject): Who the token represents (typically the user ID)
+- **`aud`** (Audience): Who should accept this token (your application or service)
+- **`exp`** (Expiration): Unix timestamp when the token becomes invalid
+- **`nbf`** (Not Before): Unix timestamp before which the token is not valid
+- **`iat`** (Issued At): Unix timestamp when the token was created
+- **`jti`** (JWT ID): Unique identifier to prevent token reuse
+
+### Public Claims
+
+Custom claims that are publicly shared and should use unique names to avoid conflicts.
+
+### Private Claims
+
+Custom claims agreed upon between parties, such as user roles, permissions, or application-specific data.
+
+**Example payload:**
+
+```json
+{
+  "sub": "user_12345",
+  "email": "john.doe@example.com",
+  "name": "John Doe",
+  "role": "admin",
+  "iat": 1728561600,
+  "exp": 1728565200
+}
+
+```
+
+**Critical Warning**: The payload is Base64URL-encoded, **not encrypted**. Anyone can decode it. Never include passwords, credit card numbers, or other sensitive data in JWT payloads.
+
+### 3. Signature
+
+The signature is the security cornerstone of JWTs. It's created by:
+
+1. Taking the encoded header
+2. Concatenating it with the encoded payload (separated by a dot)
+3. Signing this string using the algorithm specified in the header and a secret key or private key
+
+For HMAC SHA-256:
+
+```
+HMACSHA256(
+  base64URLEncode(header) + "." + base64URLEncode(payload),
+  secret_key
+)
+
+```
+
+The resulting signature is Base64URL-encoded to form the third part of the token.
+
+**Important**: You cannot decrypt a JWT signature. Instead, verification works by **recreating** the signature using the same algorithm and key, then comparing it to the original. If they match, the token is valid and hasn't been tampered with.
+
+---
+
+## How JWT Authentication Works
+
+Here's the typical authentication flow using JWTs:
+
+### Step 1: User Login
+
+The user submits credentials to your authentication endpoint:
+
+```
+POST /api/login
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "securePassword123"
+}
+
+```
+
+### Step 2: Server Validates and Issues JWT
+
+If credentials are valid, the authentication server:
+
+1. Creates a payload with user information and claims
+2. Signs the token using a secret key or private key
+3. Returns the JWT to the client
+
+```jsx
+const token = jwt.sign(
+  {
+    userId: '12345',
+    email: 'user@example.com',
+    role: 'admin'
+  },
+  SECRET_KEY,
+  { expiresIn: '15m' }
+);
+
+```
+
+Response:
+
+```json
+{
+  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "refreshToken": "a8f5f167f44f4964e6c998dee827110c"
+}
+
+```
+
+### Step 3: Client Stores the Token
+
+The client stores the JWT securely:
+
+- **Web applications**: HttpOnly cookies (most secure) or memory storage
+- **Mobile applications**: Platform-specific secure storage (iOS Keychain, Android Keystore)
+
+### Step 4: Authenticated Requests
+
+For every subsequent request, the client includes the JWT in the Authorization header:
+
+```
+GET /api/dashboard
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+```
+
+### Step 5: Server Verification
+
+The server:
+
+1. Extracts the token from the Authorization header
+2. Verifies the signature using the secret or public key
+3. Checks the expiration time (`exp` claim)
+4. Validates other relevant claims (`aud`, `iss`, etc.)
+
+If valid, the server processes the request. If invalid or expired, it returns a 401 Unauthorized or 403 Forbidden error.
+
+---
+
+## Use Cases and Architecture Patterns
+
+### Traditional Client-Server Authentication
+
+JWTs work well for standard web applications where a frontend communicates with a backend API. They eliminate the need for server-side session storage, making your application more scalable.
+
+### Microservices and Distributed Systems
+
+JWTs shine in microservices architectures. Using public-private key pairs (RS256 or ES256):
+
+- The **authentication service** signs tokens with its **private key**
+- All other microservices verify tokens using the **public key**
+- No service-to-service communication is needed for authentication
+- Each service can independently verify tokens without contacting the auth service
+
+This approach dramatically improves:
+
+- **Performance**: No authentication bottlenecks
+- **Resilience**: Services remain functional even if the auth service is temporarily unavailable
+- **Security**: Only the auth service can create tokens; other services can only verify them
+
+---
+
+## Token Signing: Secrets vs Key Pairs
+
+There are two primary methods for signing JWTs, each with distinct use cases:
+
+### Symmetric Signing (Shared Secret)
+
+Uses a single secret key for both signing and verification (typically with HMAC algorithms like HS256).
+
+**Pros:**
+
+- Simple to implement
+- Faster signature generation and verification
+- Suitable for monolithic applications
+
+**Cons:**
+
+- Every service that verifies tokens must know the secret
+- Higher risk if the secret is exposed
+- Any service can create new tokens, which may blur responsibility
+
+**Use when**: You have a single application or tightly coupled services where secret distribution is manageable.
+
+### Asymmetric Signing (Public-Private Key Pair)
+
+Uses RSA or ECDSA algorithms (RS256, RS512, ES256, ES512) with separate keys for signing and verification.
+
+- **Private key**: Used only by the authentication service to sign tokens
+- **Public key**: Distributed to all services for verification
+
+**Pros:**
+
+- Higher security—compromising a public key doesn't allow token creation
+- Clear separation of concerns—only the auth service can issue tokens
+- Public keys can be safely shared with external parties
+- Ideal for microservices architectures
+
+**Cons:**
+
+- Slightly slower than symmetric algorithms
+- More complex key management
+
+**Use when**: You have distributed systems, multiple services, or when you need to verify tokens across organizational boundaries.
+
+---
+
+## Refresh Tokens: Maintaining Long-Term Sessions
+
+Short-lived access tokens (5-15 minutes) enhance security but require a mechanism for maintaining user sessions without constant re-authentication. This is where refresh tokens come in.
+
+### How Refresh Tokens Work
+
+When a user logs in, they receive two tokens:
+
+1. **Access Token** (JWT): Short-lived (15 minutes), sent with every API request
+2. **Refresh Token**: Long-lived (days or months), stored in a database, used only to obtain new access tokens
+
+**The flow:**
+
+1. User logs in → receives both tokens
+2. Client uses access token for API requests
+3. Access token expires → client uses refresh token to request a new access token
+4. Auth service validates refresh token → issues new access token
+5. Repeat until refresh token expires or is revoked
+
+### Refresh Token Benefits
+
+- **Security**: If an access token is stolen, it's only valid for a short time
+- **Flexibility**: Refresh tokens can be revoked immediately (they're stored server-side)
+- **User Experience**: Users stay logged in for extended periods without frequent re-authentication
+- **Fresh Claims**: Each new access token contains updated user information (roles, permissions)
+
+### Implementation Best Practices
+
+- Store refresh tokens in a database with user association
+- Use HttpOnly cookies for refresh tokens in web applications
+- Implement refresh token rotation (issue a new refresh token with each refresh)
+- Set reasonable expiration times (7-30 days for most applications)
+- Revoke all refresh tokens when a user changes their password or logs out
+- Implement automatic expiration for unused refresh tokens (e.g., 30 days of inactivity)
+
+---
+
+## Security Best Practices
+
+Implementing JWTs securely requires attention to multiple aspects of your application:
+
+### 1. Always Use HTTPS
+
+Transmit JWTs only over encrypted connections. Without HTTPS, tokens can be intercepted via man-in-the-middle attacks.
+
+### 2. Protect Your Keys
+
+**For symmetric signing:**
+
+- Use cryptographically random secrets with high entropy
+- Minimum 256 bits (32 characters) for HS256
+- Store secrets in environment variables or secure vaults, never in code
+
+**For asymmetric signing:**
+
+- Keep private keys secure and never expose them
+- Rotate keys periodically
+- Use hardware security modules (HSMs) for production environments
+
+### 3. Choose Strong Algorithms
+
+- **Never** allow `alg: "none"` — this disables signature verification entirely
+- Use modern algorithms: HS256, RS256, or ES256
+- Avoid deprecated algorithms like HS1 or RS1
+- Configure your JWT library to reject tokens with unexpected algorithms
+
+### 4. Validate All Claims
+
+Always verify:
+
+- **`exp`** (Expiration): Reject expired tokens
+- **`nbf`** (Not Before): Ensure the token is valid now
+- **`aud`** (Audience): Confirm the token is intended for your service
+- **`iss`** (Issuer): Verify the token comes from a trusted source
+- **`sub`** (Subject): Ensure the user ID is valid
+
+### 5. Use Short Expiration Times
+
+Access tokens should expire quickly:
+
+- **Highly sensitive operations**: 5-15 minutes
+- **Standard applications**: 15-60 minutes
+- **Public APIs**: Consider your use case, but err on the shorter side
+
+Combine short-lived access tokens with refresh tokens for the best balance of security and usability.
+
+### 6. Secure Client-Side Storage
+
+**For web applications:**
+
+| Storage Method | XSS Vulnerability | CSRF Vulnerability | Recommendation |
+| --- | --- | --- | --- |
+| localStorage | High | Low | Avoid |
+| sessionStorage | High | Low | Avoid |
+| Regular cookies | High | High | Avoid |
+| HttpOnly cookies | Low | Medium | Best for refresh tokens |
+| Memory only | Low | N/A | Best for access tokens |
+
+**Recommended approach**: Store access tokens in memory (JavaScript variables) and refresh tokens in HttpOnly, Secure cookies with SameSite attribute.
+
+**For mobile applications**: Use platform-specific secure storage mechanisms.
+
+### 7. Implement Token Revocation Strategies
+
+Since JWTs are stateless, they can't be invalidated once issued. Implement one or more of these strategies:
+
+**Short expiration times**: The simplest approach—tokens automatically expire quickly.
+
+**Token blacklist**: Maintain a list of revoked token IDs (JTIs). This reintroduces state but allows immediate revocation.
+
+**Refresh token rotation**: Issue new refresh tokens with each use and invalidate the old ones.
+
+**Version numbers**: Include a version claim in tokens and increment it when a user's permissions change or they log out.
+
+### 8. Never Trust User Input
+
+Even though JWTs are signed:
+
+- Always validate token structure before verification
+- Sanitize any data extracted from tokens before using it in queries
+- Implement rate limiting on authentication endpoints
+- Log and monitor suspicious token usage patterns
+
+### 9. Handle Token Theft Scenarios
+
+Implement detection mechanisms:
+
+- Monitor for tokens used from multiple IP addresses simultaneously
+- Track unusual usage patterns (geographic anomalies, excessive requests)
+- Require re-authentication for sensitive operations
+- Implement step-up authentication for high-risk actions
+
+### 10. Regular Security Audits
+
+- Review and update JWT libraries regularly
+- Conduct penetration testing focused on authentication flows
+- Monitor security advisories for your JWT library
+- Have an incident response plan for compromised keys
+
+---
+
+## Common Misconceptions About JWTs
+
+### Misconception 1: JWTs Are Encrypted
+
+**Reality**: By default, JWTs are **signed, not encrypted**. Anyone can decode and read the payload. If you need to hide the payload contents, you must use JWE (JSON Web Encryption), which is a separate standard.
+
+### Misconception 2: You Can "Decrypt" JWT Signatures
+
+**Reality**: Signatures are one-way cryptographic functions. Verification works by **recreating** the signature and comparing it—not by decrypting it.
+
+### Misconception 3: Changing Token Data Won't Be Detected
+
+**Reality**: Any modification to the header or payload will cause signature verification to fail. This is the entire point of the signature.
+
+### Misconception 4: JWTs Are Automatically Secure
+
+**Reality**: Security depends entirely on your implementation. Weak secrets, algorithm confusion attacks, and improper storage can all compromise JWT security.
+
+### Misconception 5: You Should Always Check the Database
+
+**Reality**: The power of JWTs lies in their statelessness. Constantly validating against a database defeats the purpose. Trust your tokens for most operations, and only check the database for critical actions like password changes or destructive operations.
+
+### Misconception 6: You Can't Revoke JWTs
+
+**Reality**: While JWTs themselves can't be revoked, you can implement revocation through blacklists, short expiration times, or by invalidating refresh tokens.
+
+---
+
+## When NOT to Use JWTs
+
+Despite their popularity, JWTs aren't always the right choice:
+
+**Traditional server-rendered applications**: If you're building a standard server-side web application without APIs or microservices, traditional session cookies might be simpler and equally secure.
+
+**When you need instant revocation**: If your application requires the ability to instantly invalidate user sessions (e.g., banking applications), traditional server-side sessions provide more control.
+
+**When tokens would be very large**: If you need to store significant amounts of data in tokens, they become unwieldy. Remember that tokens are sent with every request.
+
+**Highly sensitive data**: If you're dealing with extremely sensitive operations and can't risk even a short window of token compromise, consider alternative authentication methods with more granular control.
+
+---
+
+## Conclusion
+
+JSON Web Tokens have become a cornerstone of modern authentication architecture due to their scalability, flexibility, and security when properly implemented. By understanding their structure, following security best practices, and using appropriate signing methods for your architecture, you can build robust, secure authentication systems.
+
+Key takeaways:
+
+1. JWTs are signed, self-contained tokens that enable stateless authentication
+2. Always use HTTPS and secure your signing keys
+3. Implement short-lived access tokens with refresh token patterns
+4. Choose the right signing method (symmetric vs asymmetric) for your architecture
+5. Never store sensitive information in JWT payloads
+6. Validate all security-relevant claims on every request
+7. Store tokens securely—HttpOnly cookies for refresh tokens, memory for access tokens in web apps
+
+By following these principles and staying current with security best practices, you can leverage JWTs to build scalable, secure applications that meet modern security standards.
+
+---
+
+## Additional Resources
+
+- [JWT.io](https://jwt.io/) - Official JWT debugger and documentation
+- [RFC 7519](https://tools.ietf.org/html/rfc7519) - Official JWT specification
+- [OWASP JWT Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/JSON_Web_Token_for_Java_Cheat_Sheet.html) - Security best practices
