@@ -1,0 +1,673 @@
+---
+title: Redis Use Cases
+description: Top 10 Redis Use Cases - A Complete Guide.
+date: 2025-06-01
+thumbnail: '/images/undraw/image-01.png'
+tags:
+  - systemdesign
+---
+
+## Introduction: What is Redis?
+
+Redis (Remote Dictionary Server) is an open-source, in-memory data store that delivers exceptional performance for modern applications. Unlike traditional databases that store data on disk, Redis keeps data in RAM, enabling sub-millisecond response times—making it ideal for scenarios where speed is critical.
+
+Redis is not just a cache. It's a multi-purpose data store that solves many real-world problems — fast, simple, and scalable.
+
+### Why Redis Matters
+
+Redis supports diverse data structures beyond simple key-value pairs, including strings, hashes, lists, sets, and sorted sets. This versatility, combined with atomic operations, makes Redis the go-to solution for building scalable, high-performance systems. Lightning fast speeds and flexible data structures make it a go-to tool for many challenging use cases including caching, session management, leaderboards, queues, analytics, and more.
+
+### Redis vs. Memcached
+
+While both are in-memory stores, Redis offers superior in-memory data storage with advanced features and better performance for modern applications. Redis supports various data structures such as strings, hashes, lists, sets, sorted sets, etc., making it more versatile than Memcached. Furthermore, Redis supports data persistence, which means that data stored in Redis is not lost even if the system crashes or is restarted.
+
+---
+
+## 1. Caching
+
+Caching is the most common and impactful use case for Redis.
+
+### The Problem
+
+Database queries can be slow and resource-intensive. When applications query databases on every request, response times increase and server load spikes, degrading user experience and scalability.
+
+### The Solution
+
+Redis caches frequently accessed data in memory, dramatically reducing latency and offloading pressure from backend databases. Redis stores frequently requested data in memory, allowing web servers to return frequently accessed data quickly, reducing the load on the database.
+
+### Cache-Aside Pattern
+
+The cache-aside (or lazy-loading) pattern is the most popular caching strategy because it gives your application full control over the caching logic:
+
+1. **Check Cache**: When a request arrives, first check if the data exists in Redis
+2. **Cache Hit**: If found, return immediately to the user
+3. **Cache Miss**: If not found, fetch from the database, store in Redis for future requests, and return to the user
+
+### Expiration and Eviction
+
+To prevent stale data, set expiration times (TTL - Time To Live) on cached entries. Redis automatically removes expired data, ensuring your cache stays fresh and memory-efficient.
+
+```jsx
+// Example: Cache API response for 1 hour
+redis.set('user:123', JSON.stringify(userData), 'EX', 3600);
+
+// Later: Check cache first
+const cached = redis.get('user:123');
+if (cached) {
+  return JSON.parse(cached); // Instant response
+} else {
+  // Fetch from database and cache
+  const data = await database.getUser(123);
+  redis.set('user:123', JSON.stringify(data), 'EX', 3600);
+  return data;
+}
+```
+
+### Best Practices
+
+- Set appropriate TTLs based on how frequently data changes
+- Use cache invalidation when data is updated
+- Monitor cache hit/miss ratios to optimize performance
+- Consider cache warming for critical data
+
+---
+
+## 2. Session Storage
+
+Modern web applications are stateless—they don't retain user session information on individual servers. However, users expect seamless experiences where logins persist, shopping carts are remembered, and preferences are maintained.
+
+### Why Redis for Sessions?
+
+Traditional approaches store sessions in files or databases, which don't scale well. Redis offers persistence advantages over other session stores like Memcached, making it ideal for session management. Redis provides fast, reliable session storage that works across distributed servers.
+
+### How Session Management Works
+
+**1. User Login:**
+
+- User submits credentials
+- Server validates and creates a unique session ID
+- Session data (user ID, role, preferences) is stored in Redis with the session ID as key
+- Session ID is sent to browser as a secure cookie
+
+**2. Subsequent Requests:**
+
+- Browser sends session ID in cookie
+- Server retrieves complete user data from Redis using session ID
+- Request is processed with user context
+
+**3. Session Expiration:**
+
+- Set TTL on session keys (e.g., 30 minutes of inactivity)
+- Redis automatically deletes expired sessions
+- Users are logged out when sessions expire
+
+```jsx
+// Store session
+const sessionId = generateId();
+redis.hset(
+  `session:${sessionId}`,
+  'userId',
+  '123',
+  'role',
+  'admin',
+  'loginTime',
+  Date.now()
+);
+redis.expire(`session:${sessionId}`, 1800); // 30 minutes
+
+// Retrieve session
+const sessionData = redis.hgetall(`session:${sessionId}`);
+```
+
+### Handling Redis Downtime
+
+For production systems, implement high availability:
+
+**Redis Replication (Recommended):**
+
+- Primary Redis instance handles writes
+- Backup instance replicates all data
+- If primary fails, backup automatically takes over
+- Minimal downtime with seamless failover
+
+**Persistence Options:**
+
+- RDB (snapshots) and AOF (append-only files) provide durability
+- Data can be restored after crashes
+- Choose based on your recovery time objectives
+
+---
+
+## 3. Rate Limiting
+
+Rate limiting protects APIs from abuse and ensures fair resource usage. Without it, malicious users or misbehaving clients can overwhelm your service.
+
+### How Redis-Based Rate Limiting Works
+
+Redis's atomic counter operations (`INCR`) make it perfect for rate limiting:
+
+1. For each request, increment a counter for that user/IP
+2. If counter exceeds the limit, reject the request
+3. Counter automatically resets after the time window expires
+
+### Rate Limiting Strategies
+
+**Fixed Window Counter (Simplest):**
+
+- Count requests within fixed time buckets (e.g., per minute)
+- When window ends, counter resets
+- Fast but can have edge-case issues at window boundaries
+
+```jsx
+// Check rate limit: 100 requests per minute
+const key = `rate_limit:user:${userId}`;
+const count = redis.incr(key);
+
+if (count === 1) {
+  redis.expire(key, 60); // First request in window, set expiry
+}
+
+if (count > 100) {
+  return 429; // Too Many Requests
+}
+```
+
+**Sliding Window Counter (More Accurate):**
+
+- Tracks requests using timestamps
+- More accurate but slightly more complex
+- Better user experience as limits slide smoothly
+
+**Token Bucket (Most Flexible):**
+
+- Users accumulate tokens over time
+- Each request consumes tokens
+- Allows burst traffic within limits
+- More sophisticated but handles varying request patterns
+
+### When to Use Rate Limiting
+
+- Protect public APIs from abuse
+- Ensure fair usage in multi-tenant systems
+- Prevent brute force attacks on login endpoints
+- Manage resource allocation across users
+
+---
+
+## 4. Distributed Locking
+
+In distributed systems, multiple servers may attempt to modify the same resource simultaneously, causing race conditions and data corruption.
+
+### The Problem
+
+Imagine an e-commerce flash sale where 1,000 users try to buy the last item. Without synchronization, multiple users might successfully purchase the same item—overselling inventory.
+
+### Redis-Based Distributed Locks
+
+Redis's atomic `SETNX` (Set if Not Exists) command provides a simple locking mechanism:
+
+```jsx
+// Acquire lock
+const lockAcquired = redis.setnx('resource_lock', 'locked');
+
+if (lockAcquired) {
+  try {
+    // Critical section: Only one process at a time
+    updateCriticalResource();
+  } finally {
+    // Release lock
+    redis.del('resource_lock');
+  }
+} else {
+  // Another process holds the lock, retry later
+  wait();
+}
+```
+
+### Lock Flow
+
+1. **Request Lock**: Process executes `SETNX lock_key "locked"`
+2. **Lock Acquired**: If key didn't exist, Redis sets it and returns `1`
+3. **Perform Work**: Process safely modifies the resource
+4. **Release Lock**: Process deletes the key, releasing the lock
+5. **Other Processes**: See lock is taken, wait and retry
+
+### Production-Grade Locking
+
+Simple `SETNX` implementations have limitations:
+
+- **Lock expiration**: If a process crashes while holding a lock, the resource is locked forever
+- **Lock ownership**: Can't distinguish which process owns which lock
+- **Safe release**: Process might release locks acquired by other processes
+
+For production, use battle-tested libraries like Redlock that handle these edge cases through:
+
+- Automatic lock expiration (TTL)
+- Lock tokens for safe release
+- Retry logic with exponential backoff
+- Multi-node safety guarantees
+
+---
+
+## 5. Real-Time Leaderboards
+
+Leaderboards rank users or items by score and are common in gaming, e-commerce, and social platforms.
+
+### Challenge at Scale
+
+Managing leaderboards for millions of users with frequent score updates requires:
+
+- Fast ranking queries (who's rank 1000?)
+- Quick score updates
+- Real-time consistency
+- Minimal memory usage
+
+### Redis Sorted Sets (ZSET)
+
+Redis's Sorted Set data structure is perfect for leaderboards. Each element has an associated score, and Redis maintains automatic sorting.
+
+**Internally**, Redis uses a skip list algorithm, providing O(log N) performance for insertions, deletions, and rank queries—fast even with millions of users.
+
+```jsx
+// Add/update player score
+redis.zadd('leaderboard', score, `player:${userId}`);
+
+// Get top 10 players
+const topPlayers = redis.zrevrange('leaderboard', 0, 9, 'WITHSCORES');
+
+// Get player's rank
+const rank = redis.zrevrank('leaderboard', `player:${userId}`);
+
+// Get players around a specific user
+const nearby = redis.zrevrangebyscore(
+  'leaderboard',
+  userScore + 100,
+  userScore - 100,
+  'WITHSCORES'
+);
+```
+
+### Real-World Examples
+
+- **Gaming**: PUBG, Fortnite, Call of Duty rank players by matches won or kill counts
+- **E-Commerce**: Amazon, Flipkart display top sellers or trending products
+- **Social Media**: Twitter, TikTok, Instagram rank trending hashtags or viral posts
+
+---
+
+## 6. Message Queues
+
+Distributed systems need asynchronous communication. Instead of waiting for responses, systems use message queues to decouple components, improving scalability and fault tolerance.
+
+### Use Cases for Message Queues
+
+- Processing image uploads or resizing
+- Sending emails asynchronously
+- Running background analytics jobs
+- Queuing notifications
+- Coordinating between microservices
+
+### Approach 1: Redis Lists (FIFO Queue)
+
+Redis Lists work as simple First-In-First-Out queues:
+
+```jsx
+// Producer: Add messages
+redis.lpush(
+  'email_queue',
+  JSON.stringify({
+    to: 'user@example.com',
+    subject: 'Welcome',
+  })
+);
+
+// Consumer: Process messages
+const message = redis.brpop('email_queue', 0); // Blocks until message available
+if (message) {
+  const emailData = JSON.parse(message);
+  sendEmail(emailData);
+}
+```
+
+**Advantages:**
+
+- Simple to implement
+- Guaranteed FIFO order
+
+**Limitations:**
+
+- No consumer groups (multiple workers can't efficiently share work)
+- Messages lost if not processed before Redis restarts (unless persistence enabled)
+
+### Approach 2: Redis Pub/Sub
+
+Redis Publish/Subscribe broadcasts messages to all subscribers in real-time:
+
+```jsx
+// Publisher
+redis.publish(
+  'notifications',
+  JSON.stringify({
+    type: 'order_shipped',
+    orderId: '12345',
+  })
+);
+
+// Subscribers
+redis.subscribe('notifications');
+redis.on('message', (channel, message) => {
+  const notification = JSON.parse(message);
+  handleNotification(notification);
+});
+```
+
+**Advantages:**
+
+- Real-time message delivery
+- Multiple subscribers
+- Fire-and-forget messaging
+
+**Limitations:**
+
+- Messages aren't persisted (subscribers must be listening when message arrives)
+- No acknowledgment or guaranteed delivery
+- Not suitable for mission-critical workflows
+
+### When to Use Each
+
+- **Lists**: Job queues, task processing, reliable message delivery
+- **Pub/Sub**: Real-time notifications, live updates, event broadcasts
+
+For large-scale systems requiring persistence and guaranteed delivery, consider dedicated message brokers like RabbitMQ or Apache Kafka.
+
+---
+
+## 7. Real-Time Analytics
+
+Because Redis can process data with sub-millisecond latency, it is ideal for real-time analytics, online advertising campaigns, and processes driven by artificial intelligence.
+
+### Why Real-Time Analytics?
+
+Traditional batch systems (Hadoop, Spark) analyze data periodically but introduce latency—often processing data hours after events occur. Real-time analytics provides instant insights for immediate action.
+
+### Real-World Applications
+
+- **Website Traffic**: Track real-time page views, active users, geographic distribution
+- **Fraud Detection**: Monitor transaction patterns for suspicious activity
+- **Stock Trading**: Instantly track price movements and execute trades
+- **Ad Metrics**: Real-time impressions, clicks, conversions
+
+### Redis for Analytics
+
+Redis excels at real-time analytics through:
+
+**Atomic Counters:**
+
+```jsx
+// Increment page view count in real-time
+redis.incr(`pageviews:${pageId}`);
+
+// Get current count
+const views = redis.get(`pageviews:${pageId}`);
+```
+
+**Sorted Sets for Time-Series:**
+
+```jsx
+// Track events with timestamps
+redis.zadd('events', Date.now(), eventData);
+
+// Get events in time range
+const recentEvents = redis.zrangebyscore(
+  'events',
+  Date.now() - 3600000, // Last hour
+  Date.now()
+);
+```
+
+**HyperLogLog for Approximate Counts:**
+
+```jsx
+// Track unique visitors with minimal memory
+redis.pfadd('unique_visitors:today', userId1, userId2, userId3);
+const uniqueCount = redis.pfcount('unique_visitors:today');
+// Uses ~12KB memory for millions of unique items
+```
+
+---
+
+## 8. Social Network Timelines
+
+Building scalable social media feeds is complex. Consider how Twitter, Instagram, or TikTok deliver personalized timelines to billions of users in real-time.
+
+### Challenge
+
+Deliver personalized, real-time feeds combining posts from followed accounts, with proper ordering, minimal latency, and the ability to scale to billions of users.
+
+### Two Architectural Approaches
+
+### Approach 1: Fan-Out on Write (Push Model)
+
+When a user posts, immediately push the post to all followers' feeds.
+
+**How it works:**
+
+1. User creates post → Post stored in Redis
+2. Post ID added to each follower's feed (Sorted Set)
+3. Followers see update instantly when they refresh
+
+**Advantages:**
+
+- Feed reads are blazing fast (data pre-loaded)
+- Ideal for regular users
+
+**Disadvantages:**
+
+- Write-heavy for celebrities with millions of followers
+- Single post might require millions of writes
+- Wastes memory storing duplicates in many feeds
+
+### Approach 2: Fan-Out on Read (Pull Model)
+
+Fetch posts dynamically when users open their feed.
+
+**How it works:**
+
+1. User creates post → Stored once in Redis
+2. Followers don't immediately get updates
+3. When follower opens feed, system pulls posts from all followed accounts
+4. Posts merged and sorted by timestamp
+
+**Advantages:**
+
+- Write-efficient (each post stored once)
+- Scalable for celebrities
+- Low memory usage
+
+**Disadvantages:**
+
+- Feed retrieval slightly slower (multiple sources fetched)
+- More complex merging logic
+
+### Hybrid Approach (Production Systems)
+
+Smart platforms use both methods:
+
+- **Regular users**: Fan-out on write (faster reads, manageable write volume)
+- **Celebrities**: Fan-out on read (manageable write volume, acceptable read latency)
+- **Threshold**: Switch approaches at follower count thresholds
+
+```jsx
+// Hybrid logic
+if (user.followerCount < 100000) {
+  // Fan-out on write for regular users
+  pushPostToFollowerFeeds(post);
+} else {
+  // Fan-out on read for celebrities
+  storePostOnce(post);
+}
+```
+
+---
+
+## 9. Flash Sale Management
+
+Flash sales create traffic spikes that crash unprepared systems. Black Friday, Cyber Monday, and seasonal sales generate massive concurrency with limited inventory.
+
+### Challenges
+
+- **High concurrency**: Thousands/millions trying to buy simultaneously
+- **Race conditions**: Multiple users buying the last item
+- **Overselling**: Selling more inventory than available
+- **Database bottleneck**: Can't handle query volume
+
+### Redis Solution
+
+Redis handles all three through in-memory operations and atomic commands:
+
+```jsx
+// 1. Check and decrement stock atomically
+const remaining = redis.decr(`inventory:iphone16`);
+
+if (remaining < 0) {
+  // Restore the decrement (we don't have stock)
+  redis.incr(`inventory:iphone16`);
+  return 'Out of Stock';
+}
+
+// 2. Record order
+redis.lpush(
+  `orders:pending`,
+  JSON.stringify({
+    userId,
+    product: 'iphone16',
+    quantity: 1,
+    timestamp: Date.now(),
+  })
+);
+
+// 3. Update user's cart in Redis (fast)
+redis.hset(`cart:${userId}`, 'iphone16', 1);
+
+return 'Order processing...';
+```
+
+### Why This Works
+
+- **Atomic Operations**: `DECR` happens atomically—no overselling possible
+- **In-Memory**: Sub-millisecond operations handle millions of requests
+- **No Database Bottleneck**: All operations in Redis until order is confirmed
+- **Easy Rollback**: If payment fails, `INCR` restores inventory
+
+### Production Setup
+
+1. Use Redis for real-time inventory and orders
+2. Process orders asynchronously from queue
+3. Update main database periodically
+4. Use replication for high availability
+
+---
+
+## 10. Geospatial Indexing
+
+Location-based features are critical for ride-sharing, food delivery, and local search applications.
+
+### Use Cases
+
+- **Ride-Sharing (Uber, Lyft, Ola)**: Finding nearest available drivers
+- **Food Delivery (Swiggy, DoorDash)**: Assigning nearest restaurants or delivery agents
+- **Social Apps**: Finding nearby friends or events
+- **Retail**: Locating nearby stores
+
+### Challenge
+
+Querying location data efficiently across millions of points requires spatial indexing—traditionally complex to implement.
+
+### Redis Geospatial Commands
+
+Redis simplifies geospatial operations with built-in commands:
+
+```jsx
+// Store locations (longitude, latitude)
+redis.geoadd(
+  'drivers',
+  -122.27652,
+  37.805186,
+  'driver:1', // Driver 1
+  -122.27652,
+  37.805186,
+  'driver:2', // Driver 2
+  -122.24624,
+  37.809842,
+  'driver:3' // Driver 3
+);
+
+// Find drivers within 5km of user location
+const nearby = redis.georadius(
+  'drivers',
+  -122.27652, // User longitude
+  37.805186, // User latitude
+  5, // 5km radius
+  'km', // Units: km, mi, m, ft
+  'WITHDIST' // Include distances
+);
+// Result: [['driver:1', 0], ['driver:2', 0.5], ...]
+
+// Get distance between two points
+const distance = redis.geodist('drivers', 'driver:1', 'driver:2', 'km');
+
+// Get coordinates of a location
+const coords = redis.geopos('drivers', 'driver:1');
+```
+
+### How It Works Internally
+
+Redis implements geospatial indexing using Sorted Sets with special algorithms:
+
+1. Converts latitude/longitude to a single geohash value
+2. Stores as Sorted Set score for efficient range queries
+3. O(log N + M) complexity where M is results in radius
+
+### Performance
+
+- **Sub-millisecond** queries for radius searches
+- Handles millions of locations
+- Scales efficiently with dataset size
+- Works seamlessly with other Redis operations
+
+---
+
+## Choosing the Right Tool
+
+While Redis excels in many domains, it's not universal:
+
+**Use Redis When:**
+
+- You need sub-millisecond latency
+- Data fits in memory
+- You need rich data structures
+- You're building stateless, distributed systems
+
+**Consider Alternatives When:**
+
+- Dataset larger than available memory
+- You need complex queries or joins
+- Data must never be lost (though Redis has persistence)
+- You need ACID transactions across multiple keys
+
+---
+
+## Conclusion
+
+Redis has evolved from a simple cache to an essential infrastructure component for modern applications. Its versatility across caching, sessions, real-time analytics, messaging, and more makes it invaluable for system design.
+
+**Key Takeaways:**
+
+1. Redis provides sub-millisecond latency for high-performance applications
+2. Rich data structures enable diverse use cases beyond simple caching
+3. Atomic operations prevent race conditions in concurrent scenarios
+4. Combine multiple Redis patterns for sophisticated systems
+5. Understand trade-offs between approaches (push vs. pull, persistence, etc.)
+6. For production systems, implement high availability through replication
+
+By mastering Redis use cases and patterns, you'll have a powerful tool for solving scalability challenges in modern systems.
