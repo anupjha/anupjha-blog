@@ -1,6 +1,5 @@
 import { BrandIcons } from '@/components/icons/brand-icons';
 
-
 export const author = {
   slug: 'anupjha',
   name: 'anupjha',
@@ -17,4 +16,5 @@ export const tags: Record<
   tailwind: { name: 'Tailwind CSS', icon: 'tailwind' },
   typescript: { name: 'TypeScript', icon: 'ts' },
   javascript: { name: 'JavaScript', icon: 'js' },
+  em: { name: 'Engineering Management', icon: 'em' },
 };

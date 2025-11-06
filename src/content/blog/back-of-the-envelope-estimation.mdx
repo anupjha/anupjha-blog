@@ -1,14 +1,19 @@
 ---
 title: Back-of-the-Envelope Estimation
 description: A Precise Guide to System Design Estimation
-date: 2024-02-08
+date: 2025-02-08
 thumbnail: '/images/undraw/image-08.png'
 tags:
   - systemdesign
 ---
 
 <Callout>
-  Back-of-the-envelope calculations are a fundamental technique in software engineering used to determine optimal system architecture design. This methodology, widely adopted by major technology companies including Google, Meta, Amazon, and Microsoft, is a standard component of system design interviews. The core principle involves calculating approximate numerical estimates to inform architectural decisions and solution design.
+  Back-of-the-envelope calculations are a fundamental technique in software
+  engineering used to determine optimal system architecture design. This
+  methodology, widely adopted by major technology companies including Google,
+  Meta, Amazon, and Microsoft, is a standard component of system design
+  interviews. The core principle involves calculating approximate numerical
+  estimates to inform architectural decisions and solution design.
 </Callout>
 
 This technique is synonymous with **capacity planning** and is essential for measuring system performance to meet Service Level Agreements (**SLAs**). Organizations perform back-of-the-envelope calculations for three primary reasons:
@@ -29,25 +34,26 @@ Mastering back-of-the-envelope calculations requires understanding three core co
 
 The following table provides precise values for powers of two, essential for memory and storage calculations:
 
-| **Power** | **Exact Value** | **Approximate Value** | **Storage Unit** | **Decimal Zeros** |
-| --- | --- | --- | --- | --- |
-| 2¹⁰ | 1,024 | 1 Thousand | 1 KB | 3 |
-| 2²⁰ | 1,048,576 | 1 Million | 1 MB | 6 |
-| 2³⁰ | 1,073,741,824 | 1 Billion | 1 GB | 9 |
-| 2⁴⁰ | 1,099,511,627,776 | 1 Trillion | 1 TB | 12 |
-| 2⁵⁰ | 1,125,899,906,842,624 | 1 Quadrillion | 1 PB | 15 |
+| **Power** | **Exact Value**       | **Approximate Value** | **Storage Unit** | **Decimal Zeros** |
+| --------- | --------------------- | --------------------- | ---------------- | ----------------- |
+| 2¹⁰       | 1,024                 | 1 Thousand            | 1 KB             | 3                 |
+| 2²⁰       | 1,048,576             | 1 Million             | 1 MB             | 6                 |
+| 2³⁰       | 1,073,741,824         | 1 Billion             | 1 GB             | 9                 |
+| 2⁴⁰       | 1,099,511,627,776     | 1 Trillion            | 1 TB             | 12                |
+| 2⁵⁰       | 1,125,899,906,842,624 | 1 Quadrillion         | 1 PB             | 15                |
 
 ### Data Type Storage Requirements
 
-| **Data Type** | **Size (bytes)** |
-| --- | --- |
-| int/float | 4 |
-| long/double/timestamp | 8 |
-| char (UTF-16) | 2 |
-| UTF-8 char (English) | 1 |
-| UTF-8 char (Chinese) | 3 |
+| **Data Type**         | **Size (bytes)** |
+| --------------------- | ---------------- |
+| int/float             | 4                |
+| long/double/timestamp | 8                |
+| char (UTF-16)         | 2                |
+| UTF-8 char (English)  | 1                |
+| UTF-8 char (Chinese)  | 3                |
 
 ## Precise Unit Conversions
+
 ### Binary vs Decimal Storage Units
 
 - **Binary**: 1 KB = 1,024 bytes, 1 MB = 1,024 KB, 1 GB = 1,024 MB
@@ -55,32 +61,32 @@ The following table provides precise values for powers of two, essential for mem
 
 ### Time Unit Conversions
 
-| **Unit** | **Value in Seconds** |
-| --- | --- |
-| 1 nanosecond (ns) | 1 × 10⁻⁹ |
-| 1 microsecond (µs) | 1 × 10⁻⁶ |
-| 1 millisecond (ms) | 1 × 10⁻³ |
+| **Unit**           | **Value in Seconds** |
+| ------------------ | -------------------- |
+| 1 nanosecond (ns)  | 1 × 10⁻⁹             |
+| 1 microsecond (µs) | 1 × 10⁻⁶             |
+| 1 millisecond (ms) | 1 × 10⁻³             |
 
 ## Quick Calculation Formulas
 
 ### Storage Estimation Shortcuts
 
 - **x Million users × y KB = xy GB**
-    - Example: 1M users × 100KB document = 100GB daily storage
+  - Example: 1M users × 100KB document = 100GB daily storage
 - **x Million users × y MB = xy TB**
-    - Example: 200M users × 2MB video = 400TB daily storage
+  - Example: 200M users × 2MB video = 400TB daily storage
 
 ## System Availability Metrics
 
 High availability measures a system's operational uptime percentage over a defined period. The following table shows precise downtime calculations for common availability targets:
 
 | **Availability %** | **Annual Downtime** | **Monthly Downtime** | **Weekly Downtime** |
-| --- | --- | --- | --- |
-| 99.0% (2 nines) | 87.7 hours | 7.31 hours | 1.68 hours |
-| 99.9% (3 nines) | 8.77 hours | 43.8 minutes | 10.1 minutes |
-| 99.99% (4 nines) | 52.6 minutes | 4.38 minutes | 1.01 minutes |
-| 99.999% (5 nines) | 5.26 minutes | 26.3 seconds | 6.05 seconds |
-| 99.9999% (6 nines) | 31.6 seconds | 2.63 seconds | 0.60 seconds |
+| ------------------ | ------------------- | -------------------- | ------------------- |
+| 99.0% (2 nines)    | 87.7 hours          | 7.31 hours           | 1.68 hours          |
+| 99.9% (3 nines)    | 8.77 hours          | 43.8 minutes         | 10.1 minutes        |
+| 99.99% (4 nines)   | 52.6 minutes        | 4.38 minutes         | 1.01 minutes        |
+| 99.999% (5 nines)  | 5.26 minutes        | 26.3 seconds         | 6.05 seconds        |
+| 99.9999% (6 nines) | 31.6 seconds        | 2.63 seconds         | 0.60 seconds        |
 
 ### Key Reliability Metrics
 
@@ -92,23 +98,23 @@ High availability measures a system's operational uptime percentage over a defin
 
 The following latency measurements are based on modern hardware (circa 2023-2024) and provide realistic performance expectations:
 
-| **Operation** | **Latency** | **Unit** | **Notes** |
-| --- | --- | --- | --- |
-| L1 cache reference | 0.5 | ns | CPU cache hit |
-| Branch mispredict | 5 | ns | CPU pipeline stall |
-| L2 cache reference | 7 | ns | Secondary cache |
-| Mutex lock/unlock | 25 | ns | Synchronization overhead |
-| Main memory reference | 100 | ns | RAM access |
-| Compress 1KB with Snappy | 10 | µs | Modern compression |
-| Send 1KB over 1 Gbps network | 10 | µs | Network transmission |
-| Random SSD read (4KB) | 150 | µs | Solid-state storage |
-| Sequential memory read (1MB) | 250 | µs | RAM throughput |
-| Intra-datacenter round trip | 500 | µs | Same facility |
-| Sequential SSD read (1MB) | 1 | ms | Storage throughput |
-| Hard disk seek | 10 | ms | Mechanical storage |
-| Sequential network read (1MB, 1Gbps) | 10 | ms | Network bandwidth |
-| Sequential HDD read (1MB) | 30 | ms | Mechanical throughput |
-| Intercontinental round trip (CA↔Netherlands) | 150 | ms | Global latency |
+| **Operation**                                 | **Latency** | **Unit** | **Notes**                |
+| --------------------------------------------- | ----------- | -------- | ------------------------ |
+| L1 cache reference                            | 0.5         | ns       | CPU cache hit            |
+| Branch mispredict                             | 5           | ns       | CPU pipeline stall       |
+| L2 cache reference                            | 7           | ns       | Secondary cache          |
+| Mutex lock/unlock                             | 25          | ns       | Synchronization overhead |
+| Main memory reference                         | 100         | ns       | RAM access               |
+| Compress 1KB with Snappy                      | 10          | µs       | Modern compression       |
+| Send 1KB over 1 Gbps network                  | 10          | µs       | Network transmission     |
+| Random SSD read (4KB)                         | 150         | µs       | Solid-state storage      |
+| Sequential memory read (1MB)                  | 250         | µs       | RAM throughput           |
+| Intra-datacenter round trip                   | 500         | µs       | Same facility            |
+| Sequential SSD read (1MB)                     | 1           | ms       | Storage throughput       |
+| Hard disk seek                                | 10          | ms       | Mechanical storage       |
+| Sequential network read (1MB, 1Gbps)          | 10          | ms       | Network bandwidth        |
+| Sequential HDD read (1MB)                     | 30          | ms       | Mechanical throughput    |
+| Intercontinental round trip (CA↔Netherlands) | 150         | ms       | Global latency           |
 
 ### Key Performance Insights
 
@@ -232,10 +238,10 @@ One million operations per day equals approximately 11.6 operations per second:
 ### Scaling Factors
 
 | **Daily Volume** | **Average/Second** | **10% Peak Hour** | **30% Peak Hour** |
-| --- | --- | --- | --- |
-| 1 million | 12 | 28 | 84 |
-| 10 million | 120 | 280 | 840 |
-| 100 million | 1,200 | 2,800 | 8,400 |
+| ---------------- | ------------------ | ----------------- | ----------------- |
+| 1 million        | 12                 | 28                | 84                |
+| 10 million       | 120                | 280               | 840               |
+| 100 million      | 1,200              | 2,800             | 8,400             |
 
 ### Peak Traffic Calculations
 
@@ -251,13 +257,13 @@ Example: 1M daily → 100,000 ÷ 3,600 = 28/second
 
 ### Data Structure Sizes (1 Million Records)
 
-| **Data Type** | **Per Record** | **1M Records** | **Memory Required** |
-| --- | --- | --- | --- |
-| Integer (32-bit) | 4 bytes | 4 MB | 4 MB |
-| Long (64-bit) | 8 bytes | 8 MB | 8 MB |
-| Float (32-bit) | 4 bytes | 4 MB | 4 MB |
-| UTF-8 String (avg 100 chars) | 200 bytes | 200 MB | 200 MB |
-| JSON Object (avg 1KB) | 1,024 bytes | 1 GB | 1 GB |
+| **Data Type**                | **Per Record** | **1M Records** | **Memory Required** |
+| ---------------------------- | -------------- | -------------- | ------------------- |
+| Integer (32-bit)             | 4 bytes        | 4 MB           | 4 MB                |
+| Long (64-bit)                | 8 bytes        | 8 MB           | 8 MB                |
+| Float (32-bit)               | 4 bytes        | 4 MB           | 4 MB                |
+| UTF-8 String (avg 100 chars) | 200 bytes      | 200 MB         | 200 MB              |
+| JSON Object (avg 1KB)        | 1,024 bytes    | 1 GB           | 1 GB                |
 
 ### Storage Growth Projections
 
