@@ -1,0 +1,204 @@
+---
+title: Code Review Best Practices - Organized Guide
+description: How Top 0.1% Engineering Teams Do Code Reviews.
+date: 2025-11-16
+thumbnail: '/images/undraw/image-12.png'
+tags:
+  - em
+---
+
+## **1. PREPARATION & SETUP**
+
+**Making Reviews Manageable**
+
+- **Keep pull requests small** - Break down changes into digestible chunks that are easy to understand and review
+  - _Example: Instead of submitting a 500-line PR with feature addition + refactoring + bug fixes, create separate PRs for each component_
+- **Write clear pull request descriptions** - Explain the "what" and "why" of changes with proper context
+  - _Example: "Adding user authentication (relates to JIRA-123). This implements OAuth2 login because we need to support SSO. Screenshot attached showing the new login flow."_
+- **Ask for review only after tests & builds pass** - Ensure code is stable before requesting reviewer time
+  - _Example: Wait for CI/CD pipeline to go green before clicking "Request Review" - this prevents reviewers from finding basic syntax errors_
+- **Link relevant tickets and attach screenshots** - Provide context that helps reviewers understand the change
+  - _Example: Include before/after screenshots for UI changes, or link to the original bug report for context_
+
+**Setting Up Review Infrastructure**
+
+- **Use a code review checklist** - Ensure consistency covering design, readability, security, and testing
+  - _Example: Checklist items like "Are edge cases tested?", "Is error handling implemented?", "Does this follow our naming conventions?"_
+- **Automate easy parts** - Use tests, linters, and static analysis to catch errors and style issues
+  - _Example: Configure ESLint, Prettier, or SonarQube to automatically flag style violations and common bugs before human review_
+- **Use review tools effectively** - Leverage threaded comments, suggested edits, and templates
+  - _Example: Use GitHub's "suggestion" feature to propose code changes directly, or create PR templates that prompt for security considerations_
+
+---
+
+## **2. REVIEWER SELECTION & RESPONSIBILITY**
+
+**Choosing the Right Reviewers**
+
+- **Choose the correct reviewer for each change** - Assign code owners or domain experts who can catch domain-specific issues
+  - _Example: For database migration changes, assign someone from the data engineering team rather than a frontend developer_
+- **Clarify reviewer responsibilities** - When assigning multiple reviewers, ensure each understands their role
+  - _Example: "Alice: focus on security aspects; Bob: verify business logic; Carol: check API design"_
+- **Encourage all team members to participate** - Rotate reviewers to spread knowledge and avoid burnout
+  - _Example: Junior developers review senior code (great learning), senior developers review junior code (mentorship), peers cross-review_
+
+---
+
+## **3. CODE QUALITY & CORRECTNESS**
+
+**Basic Code Hygiene**
+
+- **Watch for duplicate & dead code** - Remove unused code and abstract logic to avoid duplication
+  - _Example: Identify functions that appear in multiple files and extract them into a shared utility module_
+- **Verify sufficient test coverage** - Good tests prevent regressions and demonstrate how code should work
+  - _Example: If adding a new payment processing function, ensure tests cover successful payment, failed payment, timeout scenarios, and invalid inputs_
+
+**Logic & Implementation Review**
+
+- **Watch out for potential bugs & logic mistakes** - Think about race conditions or extreme inputs that tests might miss
+  - _Example: Check if concurrent requests could corrupt shared state, or if the function handles empty arrays/null values properly_
+- **Compare implementation with requirements** - Ensure it handles acceptance criteria, edge cases, and error conditions
+  - _Example: If the ticket says "users should see an error message when upload fails," verify this behavior exists for all failure types_
+- **Ensure code handles errors gracefully** - Functions must deal with null inputs or external call failures without crashing
+  - _Example: Instead of `user.name.toUpperCase()`, use `user?.name?.toUpperCase() ?? 'Unknown'` to prevent crashes_
+
+**Performance & Scalability**
+
+- **Consider performance at scale** - Look for things that might cause slowdowns in critical paths
+  - _Example: Avoid nested loops like `users.forEach(user => orders.forEach(order => ...))` when dealing with large datasets - use a hash map instead_
+- **Review with the bigger picture in mind** - Consider cross-cutting concerns like performance, concurrency, and backward compatibility
+  - _Example: A new API field should be optional to maintain backward compatibility with mobile apps running older versions_
+
+---
+
+## **4. CODE STANDARDS & CONSISTENCY**
+
+**Maintaining Standards**
+
+- **Enforce coding standards for consistency** - Suggest refactoring if logic is hard to follow
+  - _Example: If the team uses async/await, point out callback-based code that should be updated to match the standard_
+- **Focus on code correctness & clarity, not personal style** - Let stylistic preferences pass if not covered by guidelines
+  - _Example: Don't argue about single vs. double quotes if the linter doesn't enforce it; focus on whether the logic is correct_
+
+**Documentation & Clarity**
+
+- **Consider whether documentation needs updates** - API changes may require updates to docs or README files
+  - _Example: If a function signature changes from `getUser(id)` to `getUser(id, includeDeleted)`, update the API documentation and inline comments_
+
+---
+
+## **5. REVIEW PROCESS & TIMING**
+
+**Managing Review Flow**
+
+- **Review quickly, but don't rush** - The goal is to improve code health, not just quick approvals
+  - _Example: Aim to provide initial feedback within 4-8 hours, but take the time needed to understand complex logic_
+- **Keep reviews short** - Hard to focus after 100+ lines of code
+  - _Example: If reviewing a 500-line change, review one module at a time with breaks, or ask the author to split it up_
+- **Get early feedback on big features** - Catch issues early and make reviews more manageable
+  - _Example: For a 3-week feature, request a design review after day 2, then incremental PR reviews rather than one massive final review_
+
+**Review Approach**
+
+- **Review in layers: design then details** - Catch both major and minor issues efficiently
+  - _Example: First pass: check architecture and design patterns. Second pass: look at variable names, error handling, and edge cases_
+- **Read code carefully and run it locally if necessary** - You can't review effectively without understanding what it does
+  - _Example: For complex state management changes, checkout the branch and click through the UI to understand the behavior_
+- **Keep feedback within scope** - Log out-of-scope issues separately
+  - _Example: If reviewing authentication changes and you notice unrelated logging issues, create a separate ticket rather than blocking the PR_
+
+---
+
+## **6. METRICS & CONTINUOUS IMPROVEMENT**
+
+**Data-Driven Improvements**
+
+- **Use review metrics to find bottlenecks** - Measure review time, bug rates, and pull request size
+  - _Example: If average review time is 3 days, investigate whether PRs are too large, reviewers are overloaded, or descriptions are unclear_
+- **Adjust practices to fit your team's needs** - Keep experimenting until you find your ideal flow
+  - _Example: A startup might use single-reviewer approval for speed, while a banking app requires two reviewers for critical paths_
+
+**Tool Enhancement**
+
+- **Use AI tools to summarize changes or find issues** - As a helper, not a replacement for human reviews
+  - _Example: Use GitHub Copilot or similar tools to get quick summaries of large changes, then dive deeper into critical sections_
+
+---
+
+## **7. COMMUNICATION & COLLABORATION**
+
+**Effective Feedback**
+
+- **Explain the "why" behind feedback** - Help others learn and avoid repeating issues
+  - _Example: Instead of "Don't use var," say "Use const/let instead of var because var has function-scope which can cause unexpected hoisting bugs"_
+- **Suggest solutions when pointing out problems** - Reviews are most valuable when they teach
+  - _Example: "This function is too complex (20+ lines, multiple responsibilities). Consider extracting the validation logic into a separate `validateInput()` function"_
+- **Mention which comments are essential vs. optional** - Help authors prioritize
+  - _Example: "🔴 BLOCKER: Security issue - SQL injection vulnerability. 🟡 OPTIONAL: Consider renaming `tmp` to `tempUser` for clarity"_
+
+**Positive Team Culture**
+
+- **Treat code review as team effort, not a fight** - Focus on making the product better
+  - _Example: Use "we" language: "We could improve this by..." rather than "You should fix..."_
+- **Point out what's done well** - Balance criticism with appreciation
+  - _Example: "Great job adding comprehensive error messages! This will make debugging much easier."_
+- **Be open to discussion when opinions differ** - Ask for reasoning and listen before insisting
+  - _Example: If someone uses a pattern you disagree with, ask "What was your reasoning for this approach?" before suggesting alternatives_
+- **Respond to feedback with curiosity, not defensiveness** - Treat comments as learning opportunities
+  - _Example: When receiving feedback, respond with "Thanks! I didn't consider that edge case. I'll add a test for it."_
+
+**Clarification & Understanding**
+
+- **Ask clarifying questions when unclear** - Prevent misunderstandings or reveal missing requirements
+  - _Example: "I see you're caching this data. How do we handle cache invalidation when the user updates their profile?"_
+
+---
+
+## **8. SECURITY & RISK MANAGEMENT**
+
+**Security Focus**
+
+- **Always think about security** - Secure code protects users and the business
+  - _Example: Check for SQL injection vulnerabilities, XSS in user inputs, exposed API keys, or sensitive data in logs_
+- **Be cautious of weak data validation, exposed data, or improper error handling**
+  - _Example: Verify that error messages don't expose sensitive information like database structure or internal file paths_
+
+**Approval Standards**
+
+- **Set clear guidelines for approval** - Define review requirements for critical changes
+  - _Example: "All changes to payment processing require approval from 2 senior engineers + security team review"_
+- **Have another set of eyes review every change** - Even small changes benefit from peer review
+  - _Example: Even a one-line configuration change should be reviewed to catch typos or misconfigurations_
+
+---
+
+## **9. KNOWLEDGE SHARING & LEARNING**
+
+**Team Growth**
+
+- **Use reviews as an opportunity to share knowledge** - Share tips and best practices
+  - _Example: "FYI: You can use the built-in `Array.groupBy()` method instead of writing this custom grouping logic"_
+- **Focus on teaching, not just criticizing**
+  - _Example: Link to relevant documentation or internal wiki pages when suggesting improvements_
+
+---
+
+## **10. CONFLICT RESOLUTION**
+
+**Handling Disagreements**
+
+- **Involve a neutral third party for critical disagreements** - Ask a tech lead or architect
+  - _Example: If two developers disagree on whether to use REST vs GraphQL for a new API, escalate to the architecture team_
+- **Create follow-up tasks for out-of-scope problems**
+  - _Example: "The performance concern you raised is valid but outside this PR's scope. I've created JIRA-456 to address it separately"_
+
+---
+
+## **11. CULTURAL GUIDELINES**
+
+**Review Philosophy**
+
+- **Don't use code reviews for performance evaluations** - Reviews exist to improve code, not measure people
+  - _Example: Mistakes found in review should be learning opportunities, not ammunition for annual reviews_
+- **Create psychological safety** - When engineers feel safe, they write better code and review honestly
+  - _Example: Encourage asking questions without judgment: "I'm not familiar with this pattern - can you explain the benefits?"_
