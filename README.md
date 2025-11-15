@@ -105,3 +105,30 @@ Visit **[https://umami.is](https://umami.is)**
 - [Design Distributed Locking Service](https://www.youtube.com/watch?v=v7x75aN9liM)
 - [Design Slack](https://systemdesign.one/slack-architecture/)
 - [Design Live Comments](https://systemdesign.one/live-comment-system-design/)
+
+### Easy
+
+- Design a URL Shortner
+- Design WhatsApp
+- Design Spotify
+- Design a Unique Id Generator
+- Design Search Autocomplete system
+
+### Medium
+
+- Notification System
+- Instagram
+- YouTube
+- Live Comments
+- Yelp (Proximity Service)
+- Distributed Rate Limiting Service
+- Gaming Leaderboard
+- Monitoring and Alerting System
+
+### Hard
+
+- Uber
+- Web Crawler
+- Distributed Job Scheduler
+- Distributed Key Value Store
+- Scalable Likes Counting System
